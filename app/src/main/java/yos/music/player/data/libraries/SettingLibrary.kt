@@ -130,6 +130,32 @@ object SettingsLibrary {
     )
 
     @Stable
+    var AnimatedAlbumCovers by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_library_animated_album_covers",
+        initialValue = false
+    )
+
+    @Stable
+    var AnimatedAlbumCoverBlacklist by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_library_animated_album_cover_blacklist",
+        initialValue = ""
+    )
+
+    fun isAnimatedAlbumCoverBlacklisted(albumName: String): Boolean
+    {
+        val normalizedAlbumName = albumName.trim()
+        if (normalizedAlbumName.isEmpty()) {return false}
+
+        return AnimatedAlbumCoverBlacklist
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .any { it.equals(normalizedAlbumName, ignoreCase = true) }
+    }
+
+    @Stable
     var ArtistSplitSeparators by mutableDataSaverStateOf(
         dataSaverInterface = SettingsSaver,
         key = "settings_library_artist_split_separators",

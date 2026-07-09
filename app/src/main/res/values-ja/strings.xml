@@ -24,6 +24,15 @@
     <string name="settings_library_artist_split_desc">Customize how artist names split into separate artists.</string>
     <string name="settings_library_artist_split_hint">Use one separator per line. Default: ,</string>
     <string name="settings_library_artist_split_placeholder">Enter one separator per line</string>
+    <string name="settings_library_animated_album_covers">アニメーションアルバムカバー</string>
+    <string name="settings_library_animated_album_covers_desc">再生画面のカバー用に Apple Music のアニメーションを取得し、可能な場合は曲と同じフォルダにアルバム名の MP4 を保存します。</string>
+    <string name="settings_library_animated_album_cover_blacklist">アニメーションカバーのブラックリスト</string>
+    <string name="settings_library_animated_album_cover_blacklist_placeholder">1 行に 1 アルバム</string>
+    <string name="settings_library_animated_album_cover_blacklist_hint">1 行に 1 つのアルバム名を入力してください。ブラックリストのアルバムは静止画カバーのままになり、アニメーションアートワーク API を呼び出しません。</string>
+    <string name="settings_library_animated_album_cover_cache_clear">アニメーションカバーのキャッシュを削除（%s）</string>
+    <string name="settings_library_animated_album_cover_cache_clear_desc">ローカル曲の横に保存されたアルバム MP4 ファイルを削除します。</string>
+    <string name="settings_library_animated_album_cover_cache_clear_confirm">もう一度タップするとキャッシュを削除します</string>
+    <string name="settings_library_animated_album_cover_cache_clear_done">キャッシュされたアニメーションカバー %d 件を削除しました。</string>
     <string name="settings_audio">音響</string>
     <string name="settings_audio_fade_in_out">フェードイン / フェードアウト</string>
     <string name="settings_audio_exoplayer">ExoPlayer のオプション</string>

@@ -24,6 +24,15 @@
     <string name="settings_library_artist_split_desc">Customize how artist names split into separate artists.</string>
     <string name="settings_library_artist_split_hint">Use one separator per line. Default: ,</string>
     <string name="settings_library_artist_split_placeholder">Enter one separator per line</string>
+    <string name="settings_library_animated_album_covers">動態專輯封面</string>
+    <string name="settings_library_animated_album_covers_desc">為播放頁面封面取得 Apple Music 動畫，並在可行時把以專輯命名的 MP4 快取到歌曲同目錄。</string>
+    <string name="settings_library_animated_album_cover_blacklist">動態封面黑名單</string>
+    <string name="settings_library_animated_album_cover_blacklist_placeholder">每行一張專輯</string>
+    <string name="settings_library_animated_album_cover_blacklist_hint">每行輸入一張專輯名稱。黑名單中的專輯會繼續使用靜態封面，且不會呼叫動態封面 API。</string>
+    <string name="settings_library_animated_album_cover_cache_clear">刪除動態封面快取（%s）</string>
+    <string name="settings_library_animated_album_cover_cache_clear_desc">刪除儲存在本機歌曲同目錄的專輯 MP4 檔案。</string>
+    <string name="settings_library_animated_album_cover_cache_clear_confirm">再次點擊以刪除快取</string>
+    <string name="settings_library_animated_album_cover_cache_clear_done">已刪除 %d 個動態封面快取檔案。</string>
     <string name="settings_audio">音訊</string>
     <string name="settings_audio_fade_in_out">淡入 / 淡出</string>
     <string name="settings_audio_exoplayer">ExoPlayer 選項</string>

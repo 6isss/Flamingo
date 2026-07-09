@@ -24,6 +24,15 @@
     <string name="settings_library_artist_split_desc">Customize how artist names split into separate artists.</string>
     <string name="settings_library_artist_split_hint">Use one separator per line. Default: ,</string>
     <string name="settings_library_artist_split_placeholder">Enter one separator per line</string>
+    <string name="settings_library_animated_album_covers">Animated Album Covers</string>
+    <string name="settings_library_animated_album_covers_desc">Fetch Apple Music animations for the Now Playing cover and cache an album-named MP4 beside the song when possible.</string>
+    <string name="settings_library_animated_album_cover_blacklist">Animated Cover Blacklist</string>
+    <string name="settings_library_animated_album_cover_blacklist_placeholder">One album per line</string>
+    <string name="settings_library_animated_album_cover_blacklist_hint">Enter one album name per line. Blacklisted albums keep the static cover and never call the animated artwork API.</string>
+    <string name="settings_library_animated_album_cover_cache_clear">Delete Animated Cover Cache (%s)</string>
+    <string name="settings_library_animated_album_cover_cache_clear_desc">Deletes album MP4 files stored beside local songs.</string>
+    <string name="settings_library_animated_album_cover_cache_clear_confirm">tap again to delete cache</string>
+    <string name="settings_library_animated_album_cover_cache_clear_done">Deleted %d cached animated cover files.</string>
     <string name="settings_audio">Audio</string>
     <string name="settings_audio_fade_in_out">Fade In / Fade Out</string>
     <string name="settings_audio_exoplayer">ExoPlayer Options</string>

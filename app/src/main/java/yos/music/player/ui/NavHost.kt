@@ -40,6 +40,7 @@ interface UI {
             const val Main = "Main"
             const val LibraryOverview = "LibraryOverview"
             const val ArtistSplit = "ArtistSplit"
+            const val AnimatedAlbumCoverBlacklist = "AnimatedAlbumCoverBlacklist"
 
             const val LyricGetter = "LyricGetter"
             const val ExoplayerSetting = "ExoplayerSetting"

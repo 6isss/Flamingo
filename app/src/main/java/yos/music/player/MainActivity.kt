@@ -150,6 +150,7 @@ import yos.music.player.ui.pages.settings.library.LibraryOverview
 import yos.music.player.ui.pages.settings.others.About
 import yos.music.player.ui.pages.settings.performance.LyricSetting
 import yos.music.player.ui.pages.settings.performance.NotificationSetting
+import yos.music.player.ui.pages.settings.performance.userinterface.AnimatedAlbumCoverBlacklistSetting
 import yos.music.player.ui.pages.settings.performance.userinterface.ScreenCornerSetDialog
 import yos.music.player.ui.pages.settings.performance.userinterface.UserInterfaceSetting
 import yos.music.player.ui.theme.YosMusicTheme
@@ -524,6 +525,9 @@ class MainActivity : BaseActivity() {
                                             }
                                             composable(UI.Settings.UserInterfaceSetting) {
                                                 UserInterfaceSetting(navController)
+                                            }
+                                            composable(UI.Settings.AnimatedAlbumCoverBlacklist) {
+                                                AnimatedAlbumCoverBlacklistSetting(navController)
                                             }
                                             composable(UI.Settings.NotificationSetting) {
                                                 NotificationSetting(navController)
