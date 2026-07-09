@@ -131,7 +131,9 @@ fun Settings(navController: NavController) =
                             SwitchItem(
                                 title = stringResource(id = R.string.settings_audio_fade_in_out),
                                 // desc = stringResource(id = R.string.settings_audio_fade_in_out_desc),
-                                onClick = { },
+                                onClick = {
+                                    SettingsLibrary.FadePlay = !SettingsLibrary.FadePlay
+                                },
                                 checkedLambda = { SettingsLibrary.FadePlay }
                             )
                         }
