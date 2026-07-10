@@ -53,6 +53,7 @@ import yos.music.player.data.objects.LibraryObject
 import yos.music.player.ui.UI
 import yos.music.player.ui.toUI
 import yos.music.player.ui.widgets.basic.ImageQuality
+import yos.music.player.ui.widgets.basic.ProfileButton
 import yos.music.player.ui.widgets.basic.RollingNumberText
 import yos.music.player.ui.widgets.basic.ShadowImageWithCache
 import yos.music.player.ui.widgets.basic.Title
@@ -71,6 +72,9 @@ fun selectedStatsPeriod(): StatsPeriod
 fun Stats(navController: NavController) =
     Title(
         title = stringResource(id = R.string.page_stats_title),
+        rightIconContent = {
+            ProfileButton { navController.toUI(UI.Settings.Main) }
+        },
         content = {
             item("StatsContent") {
                 StatsContent(navController)

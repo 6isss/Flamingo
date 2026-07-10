@@ -158,6 +158,7 @@ fun Title(
     onBack: (() -> Unit)? = null,
     rightIcon: ImageVector? = null,
     onRightIcon: (() -> Unit)? = null,
+    rightIconContent: @Composable (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
     bottomPadding: Dp = 134.dp,
     /**
@@ -176,6 +177,7 @@ fun Title(
         onBack = onBack,
         rightIcon = rightIcon,
         onRightIcon = onRightIcon,
+        rightIconContent = rightIconContent,
         rightBarIcon = rightBarIcon,
         grid = false,
         bottomPadding = bottomPadding,
@@ -213,6 +215,7 @@ private fun BaseTitle(
     onBack: (() -> Unit)? = null,
     rightIcon: ImageVector? = null,
     onRightIcon: (() -> Unit)? = null,
+    rightIconContent: @Composable (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
     columns: () -> Int = { 2 },
     grid: Boolean,
@@ -227,6 +230,7 @@ private fun BaseTitle(
             onBack = onBack,
             rightIcon = rightIcon,
             onRightIcon = onRightIcon,
+            rightIconContent = rightIconContent,
             rightBarIcon = rightBarIcon,
             columns = columns,
             content = content as LazyGridScope.() -> Unit
@@ -238,6 +242,7 @@ private fun BaseTitle(
             onBack = onBack,
             rightIcon = rightIcon,
             onRightIcon = onRightIcon,
+            rightIconContent = rightIconContent,
             rightBarIcon = rightBarIcon,
             bottomPadding = bottomPadding,
             listState = listState,
@@ -253,6 +258,7 @@ private fun BaseTitleGrid(
     onBack: (() -> Unit)? = null,
     rightIcon: ImageVector? = null,
     onRightIcon: (() -> Unit)? = null,
+    rightIconContent: @Composable (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
     columns: () -> Int = { 2 },
     content: LazyGridScope.() -> Unit
@@ -288,6 +294,7 @@ private fun BaseTitleGrid(
                         subTitle,
                         rightIcon,
                         onRightIcon,
+                        rightIconContent,
                         alpha,
                         true
                     )
@@ -316,6 +323,7 @@ private fun BaseTitleList(
     onBack: (() -> Unit)? = null,
     rightIcon: ImageVector? = null,
     onRightIcon: (() -> Unit)? = null,
+    rightIconContent: @Composable (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
     bottomPadding: Dp = 134.dp,
     listState: LazyListState? = null,
@@ -345,6 +353,7 @@ private fun BaseTitleList(
                         subTitle,
                         rightIcon,
                         onRightIcon,
+                        rightIconContent,
                         alpha,
                         false
                     )
@@ -573,6 +582,7 @@ private fun TitleItem(
     subTitle: String?,
     rightIcon: ImageVector?,
     onRightIcon: (() -> Unit)?,
+    rightIconContent: @Composable (() -> Unit)?,
     alpha: State<Float>,
     grid: Boolean = false
 ) {
@@ -605,7 +615,7 @@ private fun TitleItem(
             }
         }
 
-        if (rightIcon != null) {
+        if (rightIcon != null || rightIconContent != null) {
             Column(
                 Modifier
                     .fillMaxHeight()
@@ -614,7 +624,7 @@ private fun TitleItem(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(if (rightIconContent != null) 32.dp else 24.dp)
                         .clickable(
                             enabled = onRightIcon != null,
                             interactionSource = remember { MutableInteractionSource() },
@@ -623,14 +633,18 @@ private fun TitleItem(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = rightIcon,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .size(24.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    if (rightIconContent != null) {
+                        rightIconContent()
+                    } else {
+                        Icon(
+                            imageVector = rightIcon!!,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }
