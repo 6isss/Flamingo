@@ -134,23 +134,6 @@ object ListenStatsManager
         return importedEvents.size
     }
 
-    fun warmStatsCache()
-    {
-        synchronized(cacheLock)
-        {
-            ensureStatsCacheSourceIsFresh()
-            val libraryIndex = cachedLibraryIndex()
-            for (period in StatsPeriod.entries)
-            {
-                if (!cachedPeriodSnapshots.containsKey(period))
-                {
-                    val periodEvents = ListenStatsLibrary.filterEventsForPeriod(statsEvents.value, period)
-                    cachedPeriodSnapshots[period] = ListenStatsLibrary.buildSnapshot(periodEvents, libraryIndex)
-                }
-            }
-        }
-    }
-
     fun snapshotForPeriod(period: StatsPeriod, liveEvents: List<ListenStatsEvent>): StatsPeriodSnapshot
     {
         val cachedSnapshot = cachedSnapshotForPeriod(period)
