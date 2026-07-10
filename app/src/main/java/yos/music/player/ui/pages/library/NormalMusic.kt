@@ -1236,10 +1236,7 @@ fun FloatingMenuPlayListPickerContent(
                 createMode.value = true
             }
 
-            if (playlists.isEmpty()) {
-                FloatingMenuDivider()
-                FloatingMenuTextItem(label = stringResource(R.string.playlist_picker_empty))
-            } else {
+            if (playlists.isNotEmpty()) {
                 FloatingMenuItemDivider()
                 playlists.forEachIndexed { index, playlist ->
                     FloatingMenuPlaylistItem(playlist = playlist) {
