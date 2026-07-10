@@ -110,6 +110,7 @@ fun PlayListOverflowSheet(
 
     YosBottomSheetDialog(
         bottomSheetState = sheetState,
+        blurred = true,
         onDismissRequest = onDismiss,
     ) {
         when (screen) {

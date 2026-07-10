@@ -1910,6 +1910,7 @@ private fun NowPlayingOverflowSheet(
 
     YosBottomSheetDialog(
         bottomSheetState = sheetState,
+        blurred = true,
         onDismissRequest = onDismiss,
     ) {
         SheetAnimatedContent(
