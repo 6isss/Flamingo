@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -23,7 +24,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -38,6 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,7 +54,9 @@ import yos.music.player.data.libraries.SettingsLibrary
 import yos.music.player.data.libraries.StatsAlbumEntry
 import yos.music.player.data.libraries.StatsArtistEntry
 import yos.music.player.data.libraries.StatsPeriod
+import yos.music.player.data.libraries.StatsPeriodSnapshot
 import yos.music.player.data.libraries.StatsTrackEntry
+import yos.music.player.data.libraries.ListenStatsLibrary
 import yos.music.player.data.objects.LibraryObject
 import yos.music.player.ui.UI
 import yos.music.player.ui.toUI
@@ -61,11 +69,43 @@ import yos.music.player.ui.theme.YosRoundedCornerShape
 import yos.music.player.ui.widgets.basic.YosWrapper
 
 private const val STATS_ROW_MAX_ITEMS = 10
+private const val STATS_LIVE_REFRESH_MS = 60_000L
 
 fun selectedStatsPeriod(): StatsPeriod
 {
     val storedOrdinal = SettingsLibrary.StatsSelectedPeriod
     return StatsPeriod.entries.getOrElse(storedOrdinal) { StatsPeriod.Today }
+}
+
+@Composable
+internal fun rememberStatsSnapshot(selectedPeriod: StatsPeriod = selectedStatsPeriod()): StatsPeriodSnapshot
+{
+    val cacheVersion = ListenStatsManager.statsCacheVersion.intValue
+    val liveRefreshVersion = remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        snapshotFlow { ListenStatsManager.liveSessionEvents.value.isNotEmpty() }
+            .collectLatest { hasLiveEvents ->
+                liveRefreshVersion.intValue++
+                while (hasLiveEvents)
+                {
+                    delay(STATS_LIVE_REFRESH_MS)
+                    liveRefreshVersion.intValue++
+                }
+            }
+    }
+
+    return produceState(
+        ListenStatsLibrary.emptySnapshot,
+        cacheVersion,
+        selectedPeriod,
+        liveRefreshVersion.intValue
+    ) {
+        val liveEvents = ListenStatsManager.liveSessionEvents.value
+        value = withContext(Dispatchers.Default) {
+            ListenStatsManager.snapshotForPeriod(selectedPeriod, liveEvents)
+        }
+    }.value
 }
 
 @Composable
@@ -86,21 +126,21 @@ private fun StatsContent(navController: NavController)
 {
     YosWrapper {
         val selectedPeriod = selectedStatsPeriod()
-
-        val cacheVersion = ListenStatsManager.statsCacheVersion.intValue
-        val liveEvents = ListenStatsManager.liveSessionEvents.value
-        LaunchedEffect(cacheVersion) {
-            withContext(Dispatchers.Default) { ListenStatsManager.warmStatsCache() }
-        }
-
-        val statsSnapshot = remember(cacheVersion, liveEvents, selectedPeriod) {
-            ListenStatsManager.snapshotForPeriod(selectedPeriod, liveEvents)
-        }
+        val statsSnapshot = rememberStatsSnapshot(selectedPeriod)
 
         val summary = statsSnapshot.summary
         val artistEntries = statsSnapshot.artistEntries
         val albumEntries = statsSnapshot.albumEntries
         val trackEntries = statsSnapshot.trackEntries
+        val artistRowState = rememberLazyListState()
+        val albumRowState = rememberLazyListState()
+        val trackRowState = rememberLazyListState()
+
+        LaunchedEffect(selectedPeriod) {
+            artistRowState.scrollToItem(0)
+            albumRowState.scrollToItem(0)
+            trackRowState.scrollToItem(0)
+        }
 
         Column(Modifier.fillMaxWidth()) {
             StatsPeriodPills(
@@ -122,6 +162,7 @@ private fun StatsContent(navController: NavController)
                     navController.toUI(UI.StatsArtists)
                 }
                 LazyRow(
+                    state = artistRowState,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(horizontal = 18.dp)
                 ) {
@@ -143,6 +184,7 @@ private fun StatsContent(navController: NavController)
                     navController.toUI(UI.StatsAlbums)
                 }
                 LazyRow(
+                    state = albumRowState,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(horizontal = 18.dp)
                 ) {
@@ -164,6 +206,7 @@ private fun StatsContent(navController: NavController)
                     navController.toUI(UI.StatsTracks)
                 }
                 LazyRow(
+                    state = trackRowState,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(horizontal = 18.dp)
                 ) {
