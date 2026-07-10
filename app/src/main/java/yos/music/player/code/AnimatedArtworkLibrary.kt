@@ -1,32 +1,48 @@
 package yos.music.player.code
 
+import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import yos.music.player.data.libraries.SettingsLibrary
 import yos.music.player.data.libraries.YosMediaItem
 import yos.music.player.data.libraries.artistsName
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.nio.ByteBuffer
+import java.security.MessageDigest
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 object AnimatedArtworkLibrary
 {
     private const val AnimatedArtworkDirectoryName = "anim"
+    private const val AnimatedArtworkCacheDirectoryName = "animated_artwork"
     private const val ArtworkSearchEndpoint = "https://artwork.m8tec.top/api/v1/artwork/search"
     private const val NetworkTimeoutMilliseconds = 15000
     private const val DefaultSampleBufferBytes = 1024 * 1024
+    private const val MaximumPlaylistBytes = 1024 * 1024
+    private const val MaximumArtworkBytes = 50L * 1024L * 1024L
     private const val MaximumExpectedStartOffsetMicroseconds = 500_000L
     private val bandwidthRegex = Regex("BANDWIDTH=(\\d+)")
     private val invalidFileNameCharacters = Regex("[\\\\/:*?\"<>|]")
     private val hlsMapUriRegex = Regex("URI=\"([^\"]+)\"")
     private val resolutionRegex = Regex("RESOLUTION=(\\d+)x(\\d+)")
+    private val artworkMutexes = ConcurrentHashMap<String, Mutex>()
 
     private data class StreamVariant(
         val url: String,
@@ -35,42 +51,45 @@ object AnimatedArtworkLibrary
         val bandwidth: Long
     )
 
-    suspend fun resolveArtworkFile(music: YosMediaItem): File? = withContext(Dispatchers.IO)
+    suspend fun resolveArtworkFile(context: Context, music: YosMediaItem): File? = withContext(Dispatchers.IO)
     {
         if (!SettingsLibrary.AnimatedAlbumCovers) {return@withContext null}
 
-        val localArtworkFile = localArtworkFile(music) ?: return@withContext null
-        if (localArtworkFile.exists())
-        {
-            return@withContext if (localArtworkFile.isFile && localArtworkFile.length() > 0L && normalizeCachedMp4File(localArtworkFile))
-            {
-                localArtworkFile
-            }
-            else
-            {
-                null
-            }
-        }
-
         val albumName = music.album?.trim()?.takeIf { it.isNotEmpty() } ?: return@withContext null
-        if (!SettingsLibrary.AnimatedAlbumCoversUseApi) {return@withContext null}
-        if (SettingsLibrary.isAnimatedAlbumCoverBlacklisted(albumName)) {return@withContext null}
+        localArtworkFile(music)?.takeIf { isPlayableVideoFile(it) }?.let { return@withContext it }
+        val cachedArtworkFile = cachedArtworkFile(context, music, albumName)
+        val artworkMutex = artworkMutexes.getOrPut(cachedArtworkFile.absolutePath) { Mutex() }
 
-        val searchUrl = buildSearchUrl(music, albumName) ?: return@withContext null
-        val hlsUrl = fetchArtworkHlsUrl(searchUrl) ?: return@withContext null
-        val mp4Url = resolveMp4Url(hlsUrl) ?: return@withContext null
+        artworkMutex.withLock {
+            if (cachedArtworkFile.exists())
+            {
+                if (cachedArtworkFile.isFile && cachedArtworkFile.length() > 0L && normalizeCachedMp4File(cachedArtworkFile))
+                {
+                    return@withLock cachedArtworkFile
+                }
 
-        if (downloadFile(mp4Url, localArtworkFile)) {localArtworkFile} else null
+                cachedArtworkFile.delete()
+            }
+
+            if (!SettingsLibrary.AnimatedAlbumCoversUseApi) {return@withLock null}
+            if (SettingsLibrary.isAnimatedAlbumCoverBlacklisted(albumName)) {return@withLock null}
+
+            val searchUrl = buildSearchUrl(music, albumName) ?: return@withLock null
+            val hlsUrl = fetchArtworkHlsUrl(searchUrl) ?: return@withLock null
+            val mp4Url = resolveMp4Url(hlsUrl) ?: return@withLock null
+
+            if (downloadFile(mp4Url, cachedArtworkFile)) {cachedArtworkFile} else null
+        }
     }
 
-    suspend fun deleteCachedArtworkFiles(songs: List<YosMediaItem>): Int = withContext(Dispatchers.IO)
+    suspend fun deleteCachedArtworkFiles(context: Context): Int = withContext(Dispatchers.IO)
     {
-        cachedArtworkFiles(songs).count { it.delete() }
+        cacheDirectory(context).listFiles()?.count { it.delete() } ?: 0
     }
 
-    suspend fun cachedArtworkFilesSizeBytes(songs: List<YosMediaItem>): Long = withContext(Dispatchers.IO)
+    suspend fun cachedArtworkFilesSizeBytes(context: Context): Long = withContext(Dispatchers.IO)
     {
-        cachedArtworkFiles(songs).sumOf { it.length() }
+        cacheDirectory(context).listFiles()?.sumOf { it.length() } ?: 0L
     }
 
     private fun localArtworkFile(music: YosMediaItem): File?
@@ -83,12 +102,32 @@ object AnimatedArtworkLibrary
         return animatedArtworkFile(songDirectory, albumName)
     }
 
-    private fun cachedArtworkFiles(songs: List<YosMediaItem>): List<File>
+    private fun isPlayableVideoFile(artworkFile: File): Boolean
     {
-        return songs
-            .mapNotNull { localArtworkFile(it) }
-            .distinctBy { it.absolutePath }
-            .filter { it.isFile }
+        return artworkFile.isFile && artworkFile.length() > 0L && firstVideoSampleTimeUs(artworkFile) != null
+    }
+
+    private fun cacheDirectory(context: Context): File
+    {
+        return File(context.cacheDir, AnimatedArtworkCacheDirectoryName)
+    }
+
+    private fun cachedArtworkFile(context: Context, music: YosMediaItem, albumName: String): File
+    {
+        val artistName = music.albumArtists?.trim()?.takeIf { it.isNotEmpty() }
+            ?: music.artistsName?.trim().orEmpty()
+
+        return animatedArtworkCacheFile(cacheDirectory(context), artistName, albumName)
+    }
+
+    internal fun animatedArtworkCacheFile(cacheDirectory: File, artistName: String, albumName: String): File
+    {
+        val cacheIdentity = "${artistName.lowercase(Locale.ROOT)}\u0000${albumName.lowercase(Locale.ROOT)}"
+        val cacheHash = MessageDigest.getInstance("SHA-256")
+            .digest(cacheIdentity.toByteArray())
+            .joinToString("") { "%02x".format(Locale.ROOT, it) }
+
+        return File(cacheDirectory, "$cacheHash.mp4")
     }
 
     internal fun animatedArtworkFileName(albumName: String): String
@@ -128,27 +167,47 @@ object AnimatedArtworkLibrary
         return URLEncoder.encode(value, "UTF-8")
     }
 
-    private fun fetchArtworkHlsUrl(searchUrl: String): String?
+    private suspend fun fetchArtworkHlsUrl(searchUrl: String): String?
     {
-        return runCatching {
+        return try
+        {
             val responseText = readUrlText(searchUrl)
             JSONObject(responseText).optString("url").takeIf { it.isNotBlank() }
-        }.getOrNull()
+        }
+        catch (cancellationException: CancellationException)
+        {
+            throw cancellationException
+        }
+        catch (_: Exception)
+        {
+            null
+        }
     }
 
-    private fun resolveMp4Url(hlsUrl: String): String?
+    private suspend fun resolveMp4Url(hlsUrl: String): String?
     {
-        return runCatching {
+        return try
+        {
             val masterPlaylistText = readUrlText(hlsUrl)
             val mediaPlaylistUrl = pickBestStreamUrl(masterPlaylistText, hlsUrl)
 
             if (mediaPlaylistUrl == null)
             {
-                return@runCatching extractMappedMp4Url(masterPlaylistText, hlsUrl)
+                extractMappedMp4Url(masterPlaylistText, hlsUrl)
             }
-
-            extractMappedMp4Url(readUrlText(mediaPlaylistUrl), mediaPlaylistUrl)
-        }.getOrNull()
+            else
+            {
+                extractMappedMp4Url(readUrlText(mediaPlaylistUrl), mediaPlaylistUrl)
+            }
+        }
+        catch (cancellationException: CancellationException)
+        {
+            throw cancellationException
+        }
+        catch (_: Exception)
+        {
+            null
+        }
     }
 
     internal fun pickBestStreamUrl(masterPlaylistText: String, masterPlaylistUrl: String): String?
@@ -204,7 +263,7 @@ object AnimatedArtworkLibrary
         return URL(URL(baseUrl), path).toString()
     }
 
-    private fun readUrlText(url: String): String
+    private suspend fun readUrlText(url: String): String
     {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.connectTimeout = NetworkTimeoutMilliseconds
@@ -216,7 +275,7 @@ object AnimatedArtworkLibrary
             val responseCode = connection.responseCode
             if (responseCode !in 200..299) {throw IllegalStateException("HTTP $responseCode")}
 
-            return connection.inputStream.bufferedReader().use { it.readText() }
+            return connection.inputStream.use { readUrlBytes(it, MaximumPlaylistBytes) }.toString(Charsets.UTF_8)
         }
         finally
         {
@@ -224,7 +283,26 @@ object AnimatedArtworkLibrary
         }
     }
 
-    private fun downloadFile(sourceUrl: String, destinationFile: File): Boolean
+    internal suspend fun readUrlBytes(inputStream: InputStream, maximumBytes: Int): ByteArray
+    {
+        val outputStream = ByteArrayOutputStream(minOf(maximumBytes, DEFAULT_BUFFER_SIZE))
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var totalBytes = 0
+
+        while (true)
+        {
+            currentCoroutineContext().ensureActive()
+            val bytesRead = inputStream.read(buffer)
+            if (bytesRead < 0) {break}
+            totalBytes += bytesRead
+            if (totalBytes > maximumBytes) {throw IOException("Response exceeds $maximumBytes bytes")}
+            outputStream.write(buffer, 0, bytesRead)
+        }
+
+        return outputStream.toByteArray()
+    }
+
+    private suspend fun downloadFile(sourceUrl: String, destinationFile: File): Boolean
     {
         if (destinationFile.exists()) {return false}
 
@@ -237,19 +315,33 @@ object AnimatedArtworkLibrary
         temporaryFile.delete()
         normalizedTemporaryFile.delete()
 
-        val connection = URL(sourceUrl).openConnection() as HttpURLConnection
-        connection.connectTimeout = NetworkTimeoutMilliseconds
-        connection.readTimeout = NetworkTimeoutMilliseconds
-        connection.requestMethod = "GET"
+        var connection: HttpURLConnection? = null
 
         try
         {
+            connection = URL(sourceUrl).openConnection() as HttpURLConnection
+            connection.connectTimeout = NetworkTimeoutMilliseconds
+            connection.readTimeout = NetworkTimeoutMilliseconds
+            connection.requestMethod = "GET"
+
             val responseCode = connection.responseCode
             if (responseCode !in 200..299) {return false}
+            if (connection.contentLength > MaximumArtworkBytes) {return false}
 
             connection.inputStream.use { inputStream ->
                 temporaryFile.outputStream().use { outputStream ->
-                    inputStream.copyTo(outputStream)
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var totalBytes = 0L
+
+                    while (true)
+                    {
+                        currentCoroutineContext().ensureActive()
+                        val bytesRead = inputStream.read(buffer)
+                        if (bytesRead < 0) {break}
+                        totalBytes += bytesRead
+                        if (totalBytes > MaximumArtworkBytes) {return false}
+                        outputStream.write(buffer, 0, bytesRead)
+                    }
                 }
             }
 
@@ -260,15 +352,23 @@ object AnimatedArtworkLibrary
             completed = normalizedTemporaryFile.renameTo(destinationFile)
             return completed
         }
+        catch (cancellationException: CancellationException)
+        {
+            throw cancellationException
+        }
+        catch (_: Exception)
+        {
+            return false
+        }
         finally
         {
-            connection.disconnect()
+            connection?.disconnect()
             temporaryFile.delete()
             if (!completed) {normalizedTemporaryFile.delete()}
         }
     }
 
-    private fun normalizeCachedMp4File(artworkFile: File): Boolean
+    private suspend fun normalizeCachedMp4File(artworkFile: File): Boolean
     {
         val firstVideoSampleTimeUs = firstVideoSampleTimeUs(artworkFile) ?: return false
         if (firstVideoSampleTimeUs <= MaximumExpectedStartOffsetMicroseconds) {return true}
@@ -326,7 +426,7 @@ object AnimatedArtworkLibrary
         }
     }
 
-    private fun normalizeMp4File(sourceFile: File, destinationFile: File): Boolean
+    private suspend fun normalizeMp4File(sourceFile: File, destinationFile: File): Boolean
     {
         destinationFile.delete()
 
@@ -353,6 +453,7 @@ object AnimatedArtworkLibrary
 
             while (true)
             {
+                currentCoroutineContext().ensureActive()
                 val sampleTrackIndex = extractor.sampleTrackIndex
                 if (sampleTrackIndex < 0) {break}
 
@@ -377,13 +478,24 @@ object AnimatedArtworkLibrary
                     0,
                     sampleSize,
                     (sampleTimeUs - trackStartTimesUs[sampleTrackIndex]).coerceAtLeast(0L),
-                    extractor.sampleFlags
+                    if (extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0)
+                    {
+                        MediaCodec.BUFFER_FLAG_KEY_FRAME
+                    }
+                    else
+                    {
+                        0
+                    }
                 )
                 muxer.writeSampleData(muxerTrackIndex, sampleBuffer, bufferInfo)
                 wroteSample = true
 
                 extractor.advance()
             }
+        }
+        catch (cancellationException: CancellationException)
+        {
+            throw cancellationException
         }
         catch (_: Exception)
         {
@@ -416,7 +528,7 @@ object AnimatedArtworkLibrary
         {
             val format = extractor.getTrackFormat(trackIndex)
             val mimeType = format.getString(MediaFormat.KEY_MIME) ?: continue
-            if (!mimeType.startsWith("video/") && !mimeType.startsWith("audio/")) {continue}
+            if (!mimeType.startsWith("video/")) {continue}
 
             muxerTrackIndexes[trackIndex] = muxer.addTrack(format)
             extractor.selectTrack(trackIndex)
@@ -434,7 +546,10 @@ object AnimatedArtworkLibrary
             val format = extractor.getTrackFormat(trackIndex)
             if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE))
             {
-                maxSampleInputSize = maxOf(maxSampleInputSize, format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE))
+                maxSampleInputSize = maxOf(
+                    maxSampleInputSize,
+                    format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE).coerceAtMost(MaximumArtworkBytes.toInt())
+                )
             }
         }
 

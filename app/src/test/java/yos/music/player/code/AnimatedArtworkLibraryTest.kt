@@ -1,8 +1,13 @@
 package yos.music.player.code
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.fail
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.IOException
 
 class AnimatedArtworkLibraryTest
 {
@@ -58,5 +63,29 @@ class AnimatedArtworkLibraryTest
             File("/music/album/anim/A_B Test.mp4"),
             AnimatedArtworkLibrary.animatedArtworkFile(File("/music/album"), "A/B Test")
         )
+    }
+
+    @Test
+    fun animatedArtworkCacheFile_separatesArtistsWithMatchingAlbumNames()
+    {
+        val cacheDirectory = File("/app/cache/animated_artwork")
+
+        val firstArtwork = AnimatedArtworkLibrary.animatedArtworkCacheFile(cacheDirectory, "First Artist", "Greatest Hits")
+        val secondArtwork = AnimatedArtworkLibrary.animatedArtworkCacheFile(cacheDirectory, "Second Artist", "Greatest Hits")
+
+        assertEquals(cacheDirectory, firstArtwork.parentFile)
+        assertNotEquals(firstArtwork, secondArtwork)
+    }
+
+    @Test
+    fun readUrlBytes_rejectsOversizedResponses() = runBlocking {
+        try
+        {
+            AnimatedArtworkLibrary.readUrlBytes(ByteArrayInputStream(ByteArray(5)), 4)
+            fail("Expected an oversized response to be rejected")
+        }
+        catch (_: IOException)
+        {
+        }
     }
 }

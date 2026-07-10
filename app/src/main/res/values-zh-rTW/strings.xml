@@ -25,13 +25,13 @@
     <string name="settings_library_artist_split_hint">Use one separator per line. Default: ,</string>
     <string name="settings_library_artist_split_placeholder">Enter one separator per line</string>
     <string name="settings_library_animated_album_covers">動態專輯封面</string>
-    <string name="settings_library_animated_album_covers_desc">播放歌曲目錄下 anim 資料夾中的本機專輯 MP4。啟用 API 後會取得 Apple Music 動畫，並在可行時儲存到該資料夾。</string>
+    <string name="settings_library_animated_album_covers_desc">播放歌曲目錄下 anim 資料夾中的本機專輯 MP4。API 下載內容會儲存在應用程式快取中。</string>
     <string name="settings_library_animated_album_covers_use_api">使用 API（需要互聯網）</string>
     <string name="settings_library_animated_album_cover_blacklist">動態封面黑名單</string>
     <string name="settings_library_animated_album_cover_blacklist_placeholder">每行一張專輯</string>
     <string name="settings_library_animated_album_cover_blacklist_hint">每行輸入一張專輯名稱。黑名單中的專輯不會呼叫動態封面 API，但現有本機 MP4 仍可播放。</string>
     <string name="settings_library_animated_album_cover_cache_clear">刪除動態封面快取（%s）</string>
-    <string name="settings_library_animated_album_cover_cache_clear_desc">刪除儲存在本機歌曲 anim 資料夾中的專輯 MP4 檔案。</string>
+    <string name="settings_library_animated_album_cover_cache_clear_desc">刪除已下載到應用程式快取中的動態封面。</string>
     <string name="settings_library_animated_album_cover_cache_clear_confirm">再次點擊以刪除快取</string>
     <string name="settings_library_animated_album_cover_cache_clear_done">已刪除 %d 個動態封面快取檔案。</string>
     <string name="settings_audio">音訊</string>

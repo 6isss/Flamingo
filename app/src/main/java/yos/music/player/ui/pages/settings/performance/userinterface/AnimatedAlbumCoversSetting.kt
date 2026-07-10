@@ -1,6 +1,11 @@
 package yos.music.player.ui.pages.settings.performance.userinterface
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -12,11 +17,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import yos.music.player.R
 import yos.music.player.code.AnimatedArtworkLibrary
-import yos.music.player.data.libraries.MusicLibrary
 import yos.music.player.data.libraries.SettingsLibrary
 import yos.music.player.ui.UI
 import yos.music.player.ui.pages.settings.Divider
@@ -33,6 +38,9 @@ fun AnimatedAlbumCoversSetting(navController: NavController) =
     SettingBackground {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        val videoPermissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) {}
         val animatedAlbumCoverCacheDeleteArmed = remember("AnimatedAlbumCoversSetting_animatedAlbumCoverCacheDeleteArmed") {
             mutableStateOf(false)
         }
@@ -40,9 +48,9 @@ fun AnimatedAlbumCoversSetting(navController: NavController) =
             mutableLongStateOf(0L)
         }
 
-        LaunchedEffect(MusicLibrary.songs)
+        LaunchedEffect(Unit)
         {
-            animatedAlbumCoverCacheSizeBytes.longValue = AnimatedArtworkLibrary.cachedArtworkFilesSizeBytes(MusicLibrary.songs)
+            animatedAlbumCoverCacheSizeBytes.longValue = AnimatedArtworkLibrary.cachedArtworkFilesSizeBytes(context)
         }
 
         Title(title = stringResource(id = R.string.settings_library_animated_album_covers),
@@ -58,6 +66,17 @@ fun AnimatedAlbumCoversSetting(navController: NavController) =
                                 onClick = {
                                     SettingsLibrary.AnimatedAlbumCovers =
                                         !SettingsLibrary.AnimatedAlbumCovers
+                                    if (
+                                        SettingsLibrary.AnimatedAlbumCovers &&
+                                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                        ContextCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.READ_MEDIA_VIDEO
+                                        ) != PackageManager.PERMISSION_GRANTED
+                                    )
+                                    {
+                                        videoPermissionLauncher.launch(Manifest.permission.READ_MEDIA_VIDEO)
+                                    }
                                 },
                                 checkedLambda = { SettingsLibrary.AnimatedAlbumCovers }
                             )
@@ -103,8 +122,8 @@ fun AnimatedAlbumCoversSetting(navController: NavController) =
 
                                 animatedAlbumCoverCacheDeleteArmed.value = false
                                 scope.launch {
-                                    val deletedCount = AnimatedArtworkLibrary.deleteCachedArtworkFiles(MusicLibrary.songs)
-                                    animatedAlbumCoverCacheSizeBytes.longValue = AnimatedArtworkLibrary.cachedArtworkFilesSizeBytes(MusicLibrary.songs)
+                                    val deletedCount = AnimatedArtworkLibrary.deleteCachedArtworkFiles(context)
+                                    animatedAlbumCoverCacheSizeBytes.longValue = AnimatedArtworkLibrary.cachedArtworkFilesSizeBytes(context)
                                     Toast.makeText(
                                         context,
                                         context.getString(
