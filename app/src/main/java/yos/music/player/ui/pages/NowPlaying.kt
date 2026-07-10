@@ -292,6 +292,7 @@ fun NowPlaying(
     isPlayingStatusLambda: () -> Boolean,
     isPlayingOnChanged: (Boolean) -> Unit,
     nowPageLambda: () -> String,
+    showNowPlaying: () -> Boolean,
     showMiniPlayer: () -> Boolean,
     nowPageOnChanged: (String) -> Unit
 ) =
@@ -313,9 +314,13 @@ fun NowPlaying(
         val thisMusicPlaying = remember("NowPlaying_thisMusicPlaying") {
             musicPlaying
         }
+        val lifecycleState = LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
         val animatedAlbumCoverState = rememberAnimatedAlbumCoverState(
             music = thisMusicPlaying.value,
-            isPlaying = isPlayingStatusLambda()
+            isPlaying = isPlayingStatusLambda(),
+            active = nowPageLambda() == Album &&
+                showNowPlaying() &&
+                lifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
         )
 
         val lastClickTime = rememberSaveable(key = "NowPlaying_lastClickTime") {

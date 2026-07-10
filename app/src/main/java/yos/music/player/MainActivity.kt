@@ -914,6 +914,7 @@ class MainActivity : BaseActivity() {
                                                     isPlaying.value = it
                                                 },
                                                 nowPageLambda = { nowPageNowPlaying.value },
+                                                showNowPlaying = { showNowPlaying.value },
                                                 showMiniPlayer = { yosBottomSheetConfig.showMenu }
                                             ) {
                                                 nowPageNowPlaying.value = it
