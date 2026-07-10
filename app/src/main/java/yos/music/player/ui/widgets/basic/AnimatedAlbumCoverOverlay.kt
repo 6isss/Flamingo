@@ -41,12 +41,13 @@ fun rememberAnimatedAlbumCoverState(
 ): AnimatedAlbumCoverState
 {
     val animatedAlbumCovers = SettingsLibrary.AnimatedAlbumCovers
+    val animatedAlbumCoversUseApi = SettingsLibrary.AnimatedAlbumCoversUseApi
     val animatedAlbumCoverBlacklist = SettingsLibrary.AnimatedAlbumCoverBlacklist
-    var animatedArtworkFile by remember(music?.uri, music?.album, animatedAlbumCovers, animatedAlbumCoverBlacklist) {
+    var animatedArtworkFile by remember(music?.uri, music?.album, animatedAlbumCovers, animatedAlbumCoversUseApi, animatedAlbumCoverBlacklist) {
         mutableStateOf<File?>(null)
     }
 
-    LaunchedEffect(music?.uri, music?.album, animatedAlbumCovers, animatedAlbumCoverBlacklist)
+    LaunchedEffect(music?.uri, music?.album, animatedAlbumCovers, animatedAlbumCoversUseApi, animatedAlbumCoverBlacklist)
     {
         animatedArtworkFile = if (music == null) {null} else {AnimatedArtworkLibrary.resolveArtworkFile(music)}
     }

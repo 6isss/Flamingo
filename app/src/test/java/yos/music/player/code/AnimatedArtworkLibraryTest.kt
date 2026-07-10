@@ -2,6 +2,7 @@ package yos.music.player.code
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.io.File
 
 class AnimatedArtworkLibraryTest
 {
@@ -48,5 +49,14 @@ class AnimatedArtworkLibraryTest
     fun animatedArtworkFileName_keepsAlbumNameAndMp4Extension()
     {
         assertEquals("A_B Test.mp4", AnimatedArtworkLibrary.animatedArtworkFileName("A/B Test"))
+    }
+
+    @Test
+    fun animatedArtworkFile_usesAnimDirectory()
+    {
+        assertEquals(
+            File("/music/album/anim/A_B Test.mp4"),
+            AnimatedArtworkLibrary.animatedArtworkFile(File("/music/album"), "A/B Test")
+        )
     }
 }

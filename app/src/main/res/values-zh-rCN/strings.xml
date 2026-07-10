@@ -25,12 +25,13 @@
     <string name="settings_library_artist_split_hint">Use one separator per line. Default: ,</string>
     <string name="settings_library_artist_split_placeholder">Enter one separator per line</string>
     <string name="settings_library_animated_album_covers">动态专辑封面</string>
-    <string name="settings_library_animated_album_covers_desc">为播放页面封面获取 Apple Music 动画，并在可行时把以专辑命名的 MP4 缓存到歌曲同目录。</string>
+    <string name="settings_library_animated_album_covers_desc">播放歌曲目录下 anim 文件夹中的本地专辑 MP4。启用 API 后会获取 Apple Music 动画，并在可行时保存到该文件夹。</string>
+    <string name="settings_library_animated_album_covers_use_api">使用 API（需要互联网）</string>
     <string name="settings_library_animated_album_cover_blacklist">动态封面黑名单</string>
     <string name="settings_library_animated_album_cover_blacklist_placeholder">每行一个专辑</string>
-    <string name="settings_library_animated_album_cover_blacklist_hint">每行输入一个专辑名。黑名单中的专辑会继续使用静态封面，并且不会调用动态封面 API。</string>
+    <string name="settings_library_animated_album_cover_blacklist_hint">每行输入一个专辑名。黑名单中的专辑不会调用动态封面 API，但现有本地 MP4 仍可播放。</string>
     <string name="settings_library_animated_album_cover_cache_clear">删除动态封面缓存（%s）</string>
-    <string name="settings_library_animated_album_cover_cache_clear_desc">删除保存在本地歌曲同目录的专辑 MP4 文件。</string>
+    <string name="settings_library_animated_album_cover_cache_clear_desc">删除保存在本地歌曲 anim 文件夹中的专辑 MP4 文件。</string>
     <string name="settings_library_animated_album_cover_cache_clear_confirm">再次点击以删除缓存</string>
     <string name="settings_library_animated_album_cover_cache_clear_done">已删除 %d 个动态封面缓存文件。</string>
     <string name="settings_audio">音频</string>

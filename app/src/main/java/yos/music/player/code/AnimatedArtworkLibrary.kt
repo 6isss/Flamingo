@@ -18,6 +18,7 @@ import java.nio.ByteBuffer
 
 object AnimatedArtworkLibrary
 {
+    private const val AnimatedArtworkDirectoryName = "anim"
     private const val ArtworkSearchEndpoint = "https://artwork.m8tec.top/api/v1/artwork/search"
     private const val NetworkTimeoutMilliseconds = 15000
     private const val DefaultSampleBufferBytes = 1024 * 1024
@@ -52,6 +53,7 @@ object AnimatedArtworkLibrary
         }
 
         val albumName = music.album?.trim()?.takeIf { it.isNotEmpty() } ?: return@withContext null
+        if (!SettingsLibrary.AnimatedAlbumCoversUseApi) {return@withContext null}
         if (SettingsLibrary.isAnimatedAlbumCoverBlacklisted(albumName)) {return@withContext null}
 
         val searchUrl = buildSearchUrl(music, albumName) ?: return@withContext null
@@ -78,7 +80,7 @@ object AnimatedArtworkLibrary
         val songDirectory = File(songPath).parentFile ?: return null
         if (!songDirectory.isDirectory) {return null}
 
-        return File(songDirectory, animatedArtworkFileName(albumName))
+        return animatedArtworkFile(songDirectory, albumName)
     }
 
     private fun cachedArtworkFiles(songs: List<YosMediaItem>): List<File>
@@ -97,6 +99,11 @@ object AnimatedArtworkLibrary
             .ifEmpty { "animated_artwork" }
 
         return "$safeAlbumName.mp4"
+    }
+
+    internal fun animatedArtworkFile(songDirectory: File, albumName: String): File
+    {
+        return File(File(songDirectory, AnimatedArtworkDirectoryName), animatedArtworkFileName(albumName))
     }
 
     private fun buildSearchUrl(music: YosMediaItem, albumName: String): String?
@@ -221,8 +228,11 @@ object AnimatedArtworkLibrary
     {
         if (destinationFile.exists()) {return false}
 
-        val temporaryFile = File(destinationFile.parentFile, ".${destinationFile.name}.tmp")
-        val normalizedTemporaryFile = File(destinationFile.parentFile, ".${destinationFile.name}.normalized.tmp")
+        val destinationDirectory = destinationFile.parentFile ?: return false
+        if (!destinationDirectory.isDirectory && !destinationDirectory.mkdirs()) {return false}
+
+        val temporaryFile = File(destinationDirectory, ".${destinationFile.name}.tmp")
+        val normalizedTemporaryFile = File(destinationDirectory, ".${destinationFile.name}.normalized.tmp")
         var completed = false
         temporaryFile.delete()
         normalizedTemporaryFile.delete()

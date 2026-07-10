@@ -143,6 +143,13 @@ object SettingsLibrary {
         initialValue = ""
     )
 
+    @Stable
+    var AnimatedAlbumCoversUseApi by mutableDataSaverStateOf(
+        dataSaverInterface = SettingsSaver,
+        key = "settings_library_animated_album_covers_use_api",
+        initialValue = false
+    )
+
     fun isAnimatedAlbumCoverBlacklisted(albumName: String): Boolean
     {
         val normalizedAlbumName = albumName.trim()

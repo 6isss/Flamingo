@@ -1,22 +1,14 @@
 package yos.music.player.ui.pages.settings.performance.userinterface
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
-import kotlinx.coroutines.launch
 import yos.music.player.R
-import yos.music.player.code.AnimatedArtworkLibrary
-import yos.music.player.data.libraries.MusicLibrary
 import yos.music.player.data.libraries.SettingsLibrary
 import yos.music.player.ui.UI
 import yos.music.player.ui.pages.settings.Divider
@@ -34,20 +26,6 @@ import yos.music.player.ui.widgets.basic.Title
 @Composable
 fun UserInterfaceSetting(navController: NavController) =
     SettingBackground {
-        val context = LocalContext.current
-        val scope = rememberCoroutineScope()
-        val animatedAlbumCoverCacheDeleteArmed = remember("UserInterfaceSetting_animatedAlbumCoverCacheDeleteArmed") {
-            mutableStateOf(false)
-        }
-        val animatedAlbumCoverCacheSizeBytes = remember("UserInterfaceSetting_animatedAlbumCoverCacheSizeBytes") {
-            mutableLongStateOf(0L)
-        }
-
-        LaunchedEffect(MusicLibrary.songs)
-        {
-            animatedAlbumCoverCacheSizeBytes.longValue = AnimatedArtworkLibrary.cachedArtworkFilesSizeBytes(MusicLibrary.songs)
-        }
-
         Title(title = stringResource(id = R.string.settings_performance_ui_title),
             onBack = {
                 navController.popBackStack()
@@ -142,55 +120,12 @@ fun UserInterfaceSetting(navController: NavController) =
                         GroupSpacerMedium()
 
                         RoundColumn {
-                            SwitchItem(
+                            LabelItem(
                                 title = stringResource(id = R.string.settings_library_animated_album_covers),
-                                onClick = {
-                                    SettingsLibrary.AnimatedAlbumCovers =
-                                        !SettingsLibrary.AnimatedAlbumCovers
-                                },
-                                checkedLambda = { SettingsLibrary.AnimatedAlbumCovers }
-                            )
-                            Divider()
-                            LabelItem(
-                                title = stringResource(id = R.string.settings_library_animated_album_cover_blacklist),
                             ) {
-                                navController.toUI(UI.Settings.AnimatedAlbumCoverBlacklist)
-                            }
-                            Divider()
-                            LabelItem(
-                                title = stringResource(
-                                    id = R.string.settings_library_animated_album_cover_cache_clear,
-                                    formatAnimatedAlbumCoverCacheSize(animatedAlbumCoverCacheSizeBytes.longValue)
-                                ),
-                                superLink = true,
-                            ) {
-                                if (!animatedAlbumCoverCacheDeleteArmed.value)
-                                {
-                                    animatedAlbumCoverCacheDeleteArmed.value = true
-                                    Toast.makeText(
-                                        context,
-                                        R.string.settings_library_animated_album_cover_cache_clear_confirm,
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    return@LabelItem
-                                }
-
-                                animatedAlbumCoverCacheDeleteArmed.value = false
-                                scope.launch {
-                                    val deletedCount = AnimatedArtworkLibrary.deleteCachedArtworkFiles(MusicLibrary.songs)
-                                    animatedAlbumCoverCacheSizeBytes.longValue = AnimatedArtworkLibrary.cachedArtworkFilesSizeBytes(MusicLibrary.songs)
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(
-                                            R.string.settings_library_animated_album_cover_cache_clear_done,
-                                            deletedCount
-                                        ),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
+                                navController.toUI(UI.Settings.AnimatedAlbumCoversSetting)
                             }
                         }
-                        ListHeader(content = stringResource(id = R.string.settings_library_animated_album_covers_desc))
 
                         GroupSpacer()
                     }
@@ -198,10 +133,3 @@ fun UserInterfaceSetting(navController: NavController) =
             }
         )
     }
-
-private fun formatAnimatedAlbumCoverCacheSize(sizeBytes: Long): String
-{
-    if (sizeBytes <= 0L) {return "0Mb"}
-
-    return "${(sizeBytes + 1024L * 1024L - 1L) / (1024L * 1024L)}Mb"
-}
