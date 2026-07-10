@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,25 +21,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import yos.music.player.R
-import yos.music.player.code.ListenStatsManager
 import yos.music.player.data.libraries.StatsAlbumEntry
 import yos.music.player.data.libraries.StatsArtistEntry
-import yos.music.player.data.libraries.StatsPeriodSnapshot
 import yos.music.player.data.libraries.StatsTrackEntry
 import yos.music.player.ui.widgets.basic.ImageQuality
 import yos.music.player.ui.widgets.basic.ShadowImageWithCache
 import yos.music.player.ui.widgets.basic.Title
-
-@Composable
-private fun rememberStatsSnapshot(): StatsPeriodSnapshot
-{
-    val cacheVersion = ListenStatsManager.statsCacheVersion.intValue
-    val liveEvents = ListenStatsManager.liveSessionEvents.value
-    val selectedPeriod = selectedStatsPeriod()
-    return remember(cacheVersion, liveEvents, selectedPeriod) {
-        ListenStatsManager.snapshotForPeriod(selectedPeriod, liveEvents)
-    }
-}
 
 @Composable
 fun StatsArtists(navController: NavController)
