@@ -108,6 +108,7 @@ import yos.music.player.ui.theme.withNight
 import yos.music.player.ui.toUI
 import yos.music.player.ui.widgets.basic.Title
 import yos.music.player.ui.widgets.basic.TitleBarIcon
+import yos.music.player.ui.widgets.basic.BlurredMenuContainer
 import yos.music.player.ui.widgets.playlist.PlayListPickerSheet
 
 private const val FirstPlayListLazyListIndex = 3
@@ -641,7 +642,8 @@ private fun PlayListContextMenuCard(
     )
     val bodyMaxHeight = (maxHeight - 64.dp - 0.5.dp).coerceAtLeast(0.dp)
 
-    Column(
+    BlurredMenuContainer(
+        backgroundColor = cardColor,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = maxHeight)
@@ -651,13 +653,13 @@ private fun PlayListContextMenuCard(
                 spotShadowColor = Color.Black
             }
             .clip(shape)
-            .background(cardColor)
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
                 onClick = {},
             ),
     ) {
+        Column {
         PlayListContextMenuHeader(playList = live)
         PlayListContextMenuDivider(color = dividerColor)
         Column(
@@ -714,6 +716,7 @@ private fun PlayListContextMenuCard(
                 iconRes = R.drawable.ic_action_delete,
                 onClick = onDelete,
             )
+        }
         }
     }
 }
