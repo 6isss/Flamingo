@@ -188,8 +188,11 @@ import yos.music.player.ui.widgets.basic.SheetAnimatedContent
 import yos.music.player.ui.widgets.basic.SheetNavigationBackward
 import yos.music.player.ui.widgets.basic.SheetNavigationForward
 import yos.music.player.ui.widgets.basic.ActionSheetBody
+import yos.music.player.ui.widgets.basic.AnimatedAlbumCoverState
+import yos.music.player.ui.widgets.basic.AnimatedAlbumCoverOverlay
 import yos.music.player.ui.widgets.basic.ImageQuality
 import yos.music.player.ui.widgets.basic.YosBottomSheetDialog
+import yos.music.player.ui.widgets.basic.rememberAnimatedAlbumCoverState
 import yos.music.player.ui.widgets.playlist.PlayListPickerContent
 import yos.music.player.ui.widgets.sleeptimer.SleepTimerContent
 import yos.music.player.code.SleepTimer
@@ -289,6 +292,7 @@ fun NowPlaying(
     isPlayingStatusLambda: () -> Boolean,
     isPlayingOnChanged: (Boolean) -> Unit,
     nowPageLambda: () -> String,
+    showNowPlaying: () -> Boolean,
     showMiniPlayer: () -> Boolean,
     nowPageOnChanged: (String) -> Unit
 ) =
@@ -310,6 +314,14 @@ fun NowPlaying(
         val thisMusicPlaying = remember("NowPlaying_thisMusicPlaying") {
             musicPlaying
         }
+        val lifecycleState = LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+        val animatedAlbumCoverState = rememberAnimatedAlbumCoverState(
+            music = thisMusicPlaying.value,
+            isPlaying = isPlayingStatusLambda(),
+            active = nowPageLambda() == Album &&
+                showNowPlaying() &&
+                lifecycleState.value.isAtLeast(Lifecycle.State.STARTED)
+        )
 
         val lastClickTime = rememberSaveable(key = "NowPlaying_lastClickTime") {
             mutableLongStateOf(0L)
@@ -500,7 +512,8 @@ fun NowPlaying(
                                                     ),
                                                     visible = isVisible
                                                 ),
-                                                albumUrl = { thisMusicPlaying.value?.thumb },
+                                                music = { thisMusicPlaying.value },
+                                                animatedAlbumCoverState = animatedAlbumCoverState,
                                                 isPlaying = isPlayingStatusLambda
                                             )
                                             AnimatedContent(
@@ -811,7 +824,8 @@ fun NowPlaying(
 @Composable
 private fun ColumnScope.Album(
     modifier: Modifier,
-    albumUrl: () -> Uri?,
+    music: () -> YosMediaItem?,
+    animatedAlbumCoverState: AnimatedAlbumCoverState,
     isPlaying: () -> Boolean
 ) = Box(
     Modifier
@@ -838,7 +852,7 @@ private fun ColumnScope.Album(
     YosWrapper {
         val dp = (7 + (27 * scale.value)).dp
         ShadowImageWithCache(
-            dataLambda = albumUrl, contentDescription = null, modifier = Modifier
+            dataLambda = { music()?.thumb }, contentDescription = null, modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.ModulateAlpha
@@ -848,7 +862,10 @@ private fun ColumnScope.Album(
                 .padding(start = dp, end = dp, bottom = dp)
                 .then(modifier),
             imageQuality = ImageQuality.RAW,
-            shadowOverlay = true
+            shadowOverlay = true,
+            overlayContent = {
+                AnimatedAlbumCoverOverlay(animatedAlbumCoverState)
+            }
         )
     }
 }

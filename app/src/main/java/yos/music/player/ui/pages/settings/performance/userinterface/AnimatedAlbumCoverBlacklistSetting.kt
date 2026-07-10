@@ -1,4 +1,4 @@
-package yos.music.player.ui.pages.settings.library
+package yos.music.player.ui.pages.settings.performance.userinterface
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,24 +29,24 @@ import yos.music.player.ui.widgets.basic.RoundColumn
 import yos.music.player.ui.widgets.basic.Title
 
 @Composable
-fun ArtistSplitSetting(navController: NavController)
+fun AnimatedAlbumCoverBlacklistSetting(navController: NavController)
 {
     SettingBackground {
         Title(
-            title = stringResource(id = R.string.settings_library_artist_split_title),
+            title = stringResource(id = R.string.settings_library_animated_album_cover_blacklist),
             onBack = {
                 navController.popBackStack()
             },
         ) {
-            item("ArtistSplitField") {
+            item("AnimatedAlbumCoverBlacklistField") {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     RoundColumn {
                         BasicTextField(
-                            value = SettingsLibrary.ArtistSplitSeparators,
+                            value = SettingsLibrary.AnimatedAlbumCoverBlacklist,
                             onValueChange = {
-                                SettingsLibrary.ArtistSplitSeparators = it
+                                SettingsLibrary.AnimatedAlbumCoverBlacklist = it
                             },
                             textStyle = TextStyle(
                                 color = Color.Black withNight Color.White,
@@ -62,9 +62,9 @@ fun ArtistSplitSetting(navController: NavController)
                                 .padding(horizontal = 15.dp, vertical = 14.dp),
                             decorationBox = { inner ->
                                 Box(modifier = Modifier.fillMaxWidth()) {
-                                    if (SettingsLibrary.ArtistSplitSeparators.isEmpty()) {
+                                    if (SettingsLibrary.AnimatedAlbumCoverBlacklist.isEmpty()) {
                                         Text(
-                                            text = stringResource(id = R.string.settings_library_artist_split_placeholder),
+                                            text = stringResource(id = R.string.settings_library_animated_album_cover_blacklist_placeholder),
                                             fontSize = 16.sp,
                                             lineHeight = 22.sp,
                                             modifier = Modifier.alpha(0.45f),
@@ -75,7 +75,7 @@ fun ArtistSplitSetting(navController: NavController)
                             },
                         )
                     }
-                    ListHeader(content = stringResource(id = R.string.settings_library_artist_split_hint))
+                    ListHeader(content = stringResource(id = R.string.settings_library_animated_album_cover_blacklist_hint))
                 }
             }
         }

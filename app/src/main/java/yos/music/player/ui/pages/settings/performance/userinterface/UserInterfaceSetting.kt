@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import yos.music.player.R
 import yos.music.player.data.libraries.SettingsLibrary
+import yos.music.player.ui.UI
 import yos.music.player.ui.pages.settings.Divider
 import yos.music.player.ui.pages.settings.GroupSpacer
 import yos.music.player.ui.pages.settings.GroupSpacerMedium
@@ -18,6 +19,7 @@ import yos.music.player.ui.pages.settings.ListHeader
 import yos.music.player.ui.pages.settings.SelectItem
 import yos.music.player.ui.pages.settings.SettingBackground
 import yos.music.player.ui.pages.settings.SwitchItem
+import yos.music.player.ui.toUI
 import yos.music.player.ui.widgets.basic.RoundColumn
 import yos.music.player.ui.widgets.basic.Title
 
@@ -114,6 +116,16 @@ fun UserInterfaceSetting(navController: NavController) =
                         }
 
                         ListHeader(content = stringResource(id = R.string.settings_performance_ui_nowplaying_background_effect_desc))
+
+                        GroupSpacerMedium()
+
+                        RoundColumn {
+                            LabelItem(
+                                title = stringResource(id = R.string.settings_library_animated_album_covers),
+                            ) {
+                                navController.toUI(UI.Settings.AnimatedAlbumCoversSetting)
+                            }
+                        }
 
                         GroupSpacer()
                     }

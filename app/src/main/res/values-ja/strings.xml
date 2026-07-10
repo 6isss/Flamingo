@@ -24,6 +24,16 @@
     <string name="settings_library_artist_split_desc">Customize how artist names split into separate artists.</string>
     <string name="settings_library_artist_split_hint">Use one separator per line. Default: ,</string>
     <string name="settings_library_artist_split_placeholder">Enter one separator per line</string>
+    <string name="settings_library_animated_album_covers">アニメーションアルバムカバー</string>
+    <string name="settings_library_animated_album_covers_desc">曲ディレクトリの anim フォルダにあるローカルアルバム MP4 を再生します。API のダウンロードはアプリのキャッシュに保存されます。</string>
+    <string name="settings_library_animated_album_covers_use_api">API を使用（インターネットが必要）</string>
+    <string name="settings_library_animated_album_cover_blacklist">アニメーションカバーのブラックリスト</string>
+    <string name="settings_library_animated_album_cover_blacklist_placeholder">1 行に 1 アルバム</string>
+    <string name="settings_library_animated_album_cover_blacklist_hint">1 行に 1 つのアルバム名を入力してください。ブラックリストのアルバムはアニメーションアートワーク API を呼び出しませんが、既存のローカル MP4 は再生できます。</string>
+    <string name="settings_library_animated_album_cover_cache_clear">アニメーションカバーのキャッシュを削除（%s）</string>
+    <string name="settings_library_animated_album_cover_cache_clear_desc">アプリのキャッシュにダウンロードされたアニメーションカバーを削除します。</string>
+    <string name="settings_library_animated_album_cover_cache_clear_confirm">もう一度タップするとキャッシュを削除します</string>
+    <string name="settings_library_animated_album_cover_cache_clear_done">キャッシュされたアニメーションカバー %d 件を削除しました。</string>
     <string name="settings_audio">音響</string>
     <string name="settings_audio_fade_in_out">フェードイン / フェードアウト</string>
     <string name="settings_audio_exoplayer">ExoPlayer のオプション</string>

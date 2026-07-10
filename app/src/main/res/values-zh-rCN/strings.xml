@@ -24,6 +24,16 @@
     <string name="settings_library_artist_split_desc">Customize how artist names split into separate artists.</string>
     <string name="settings_library_artist_split_hint">Use one separator per line. Default: ,</string>
     <string name="settings_library_artist_split_placeholder">Enter one separator per line</string>
+    <string name="settings_library_animated_album_covers">动态专辑封面</string>
+    <string name="settings_library_animated_album_covers_desc">播放歌曲目录下 anim 文件夹中的本地专辑 MP4。API 下载内容会保存在应用缓存中。</string>
+    <string name="settings_library_animated_album_covers_use_api">使用 API（需要互联网）</string>
+    <string name="settings_library_animated_album_cover_blacklist">动态封面黑名单</string>
+    <string name="settings_library_animated_album_cover_blacklist_placeholder">每行一个专辑</string>
+    <string name="settings_library_animated_album_cover_blacklist_hint">每行输入一个专辑名。黑名单中的专辑不会调用动态封面 API，但现有本地 MP4 仍可播放。</string>
+    <string name="settings_library_animated_album_cover_cache_clear">删除动态封面缓存（%s）</string>
+    <string name="settings_library_animated_album_cover_cache_clear_desc">删除已下载到应用缓存中的动态封面。</string>
+    <string name="settings_library_animated_album_cover_cache_clear_confirm">再次点击以删除缓存</string>
+    <string name="settings_library_animated_album_cover_cache_clear_done">已删除 %d 个动态封面缓存文件。</string>
     <string name="settings_audio">音频</string>
     <string name="settings_audio_fade_in_out">淡入 / 淡出</string>
     <string name="settings_audio_exoplayer">ExoPlayer 选项</string>

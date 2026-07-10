@@ -1,7 +1,10 @@
 package yos.music.player.ui.widgets.basic
 
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
@@ -90,34 +93,13 @@ fun ShadowImageWithCache(
     shadowType: ShadowType = ShadowType.Large,
     shadowOverlay: Boolean = false,
     cornerRadius: Dp = 8.dp,
-    imageQuality: ImageQuality
+    imageQuality: ImageQuality,
+    overlayContent: (@Composable BoxScope.() -> Unit)? = null
 ) = YosWrapper {
     val shape = YosRoundedCornerShape(cornerRadius)
     val url = dataLambda()
-    AsyncImage(
-        model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
-            .error(R.drawable.placeholder_music_default_artwork)
-            .placeholder(R.drawable.placeholder_music_default_artwork)
-            .fallback(R.drawable.placeholder_music_default_artwork)
-            .placeholderMemoryCacheKey(url.toString())
-            .memoryCacheKey(url.toString())
-            .allowHardware(true)
-            .crossfade(true)
-            .apply {
-                if (imageQuality != ImageQuality.RAW) {
-                    val size = getSizeFromQuality(imageQuality)
-                    this.size(size)
-                    if (imageQuality == ImageQuality.LOW) {
-                        this.precision(Precision.INEXACT)
-                    }
-                } else {
-                    this.precision(Precision.EXACT)
-                    this.size(coil.size.Size.ORIGINAL)
-                }
-            }
-            .build(),
-        contentDescription = contentDescription.toString(),
-        contentScale = ContentScale.Crop,
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
@@ -127,6 +109,34 @@ fun ShadowImageWithCache(
                 clip = true
                 this.shape = shape
             }
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current).data(data = url).crossfade(true)
+                .error(R.drawable.placeholder_music_default_artwork)
+                .placeholder(R.drawable.placeholder_music_default_artwork)
+                .fallback(R.drawable.placeholder_music_default_artwork)
+                .placeholderMemoryCacheKey(url.toString())
+                .memoryCacheKey(url.toString())
+                .allowHardware(true)
+                .crossfade(true)
+                .apply {
+                    if (imageQuality != ImageQuality.RAW) {
+                        val size = getSizeFromQuality(imageQuality)
+                        this.size(size)
+                        if (imageQuality == ImageQuality.LOW) {
+                            this.precision(Precision.INEXACT)
+                        }
+                    } else {
+                        this.precision(Precision.EXACT)
+                        this.size(coil.size.Size.ORIGINAL)
+                    }
+                }
+                .build(),
+            contentDescription = contentDescription.toString(),
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
 
-    )
+        overlayContent?.invoke(this)
+    }
 }
