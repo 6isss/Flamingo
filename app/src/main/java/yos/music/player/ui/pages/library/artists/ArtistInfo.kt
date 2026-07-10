@@ -599,7 +599,10 @@ private fun ArtistAddToPlaylistSheet(
 {
     if (!isOpen.value) return
 
-    YosBottomSheetDialog(onDismissRequest = { isOpen.value = false }) {
+    YosBottomSheetDialog(
+        blurred = true,
+        onDismissRequest = { isOpen.value = false },
+    ) {
         ArtistAddToPlaylistContent(
             artistName = artistName,
             songs = songs,

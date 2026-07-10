@@ -181,6 +181,7 @@ internal fun YosBottomSheetDialog(
     bottomSheetState: SheetState = rememberModalBottomSheetState(),
     properties: ModalBottomSheetProperties = ModalBottomSheetDefaults.properties(),
     cornerRadius: () -> Dp = { SettingsLibrary.ScreenCorner.toInt().dp },
+    blurred: Boolean = false,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -201,6 +202,7 @@ internal fun YosBottomSheetDialog(
     }
 
     val shape = YosRoundedCornerShape(cornerRadius())
+    val backgroundColor = Color.White withNight Color.Black
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -230,15 +232,20 @@ internal fun YosBottomSheetDialog(
                 }
                 .clipToBounds()
                 /*.navigationBarsPadding()*/,
-                color = Color.White withNight Color.Black,
+                color = if (blurred) Color.Transparent else backgroundColor,
                 contentColor = Color.Black withNight Color.White,
                 content = {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(26.dp)
-                    ) {
-                        content()
+                    Box {
+                        if (blurred) {
+                            MenuBlurBackground(backgroundColor, Modifier.matchParentSize())
+                        }
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(26.dp)
+                        ) {
+                            content()
+                        }
                     }
                 }
             )

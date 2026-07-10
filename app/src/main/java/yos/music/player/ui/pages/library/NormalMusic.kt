@@ -125,6 +125,7 @@ import yos.music.player.ui.widgets.basic.SearchTextField
 import yos.music.player.ui.widgets.basic.Title
 import yos.music.player.ui.widgets.basic.TitleBarIcon
 import yos.music.player.ui.widgets.basic.YosWrapper
+import yos.music.player.ui.widgets.basic.BlurredMenuContainer
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -987,8 +988,9 @@ fun FloatingMenu(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.TopEnd
                     ) {
-                        Column(
-                            Modifier
+                        BlurredMenuContainer(
+                            backgroundColor = Color(0xFFE9E9E9) withNight Color(0xFF161616),
+                            modifier = Modifier
                                 .padding(end = 12.dp)
                                 /*.shadow(
                                     spotColor = shadowColor,
@@ -1004,10 +1006,11 @@ fun FloatingMenu(
                                 .graphicsLayer {
                                     this.shape = shape
                                     this.clip = true
-                                }
-                                .background(Color(0xF2E9E9E9) withNight Color(0xFA161616), shape),
+                                },
                         ) {
-                            content()
+                            Column {
+                                content()
+                            }
                         }
                     }
                 }
@@ -1050,7 +1053,7 @@ fun FloatingMenuItem(
         Modifier
             .fillMaxWidth(0.618f)
             .height(48.dp)
-            .background((Color.White withNight Color.Black).copy(alpha = 0.68f))
+            .background((Color.White withNight Color.Black).copy(alpha = 0.32f))
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1104,7 +1107,7 @@ fun FloatingMenuItem(
         Modifier
             .fillMaxWidth(0.618f)
             .height(48.dp)
-            .background((Color.White withNight Color.Black).copy(alpha = 0.68f))
+            .background((Color.White withNight Color.Black).copy(alpha = 0.32f))
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1233,10 +1236,7 @@ fun FloatingMenuPlayListPickerContent(
                 createMode.value = true
             }
 
-            if (playlists.isEmpty()) {
-                FloatingMenuDivider()
-                FloatingMenuTextItem(label = stringResource(R.string.playlist_picker_empty))
-            } else {
+            if (playlists.isNotEmpty()) {
                 FloatingMenuItemDivider()
                 playlists.forEachIndexed { index, playlist ->
                     FloatingMenuPlaylistItem(playlist = playlist) {
@@ -1312,7 +1312,7 @@ private fun FloatingMenuTextField(
         Modifier
             .fillMaxWidth(0.618f)
             .heightIn(min = 48.dp)
-            .background((Color.White withNight Color.Black).copy(alpha = 0.68f))
+            .background((Color.White withNight Color.Black).copy(alpha = 0.32f))
             .clickable {
                 focusRequester.requestFocus()
                 keyboardController?.show()
@@ -1364,7 +1364,7 @@ private fun FloatingMenuTextItem(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth(0.618f)
-            .background((Color.White withNight Color.Black).copy(alpha = 0.68f))
+            .background((Color.White withNight Color.Black).copy(alpha = 0.32f))
             .padding(horizontal = 18.dp, vertical = 12.dp)
             .alpha(0.8f),
     )
@@ -1377,7 +1377,7 @@ private fun FloatingMenuHeader(label: String, onBack: () -> Unit)
         Modifier
             .fillMaxWidth(0.618f)
             .height(48.dp)
-            .background((Color.White withNight Color.Black).copy(alpha = 0.68f))
+            .background((Color.White withNight Color.Black).copy(alpha = 0.32f))
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1418,7 +1418,7 @@ private fun FloatingMenuPlaylistItem(playlist: PlayList, onClick: () -> Unit)
         Modifier
             .fillMaxWidth(0.618f)
             .height(48.dp)
-            .background((Color.White withNight Color.Black).copy(alpha = 0.68f))
+            .background((Color.White withNight Color.Black).copy(alpha = 0.32f))
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
