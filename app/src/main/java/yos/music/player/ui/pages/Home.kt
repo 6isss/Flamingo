@@ -48,8 +48,6 @@ import androidx.navigation.NavController
 import coil.imageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import io.github.alexzhirkevich.cupertino.icons.CupertinoIcons
-import io.github.alexzhirkevich.cupertino.icons.outlined.PersonCropCircle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -68,6 +66,7 @@ import yos.music.player.data.models.ImageViewModel
 import yos.music.player.ui.UI
 import yos.music.player.ui.theme.YosRoundedCornerShape
 import yos.music.player.ui.toUI
+import yos.music.player.ui.widgets.basic.ProfileButton
 import yos.music.player.ui.widgets.effects.imageResolve
 import yos.music.player.ui.widgets.basic.Title
 import yos.music.player.ui.widgets.basic.YosWrapper
@@ -78,9 +77,8 @@ fun Home(
     imageViewModel: ImageViewModel
 ) = Title(
     title = stringResource(id = R.string.page_home_title),
-        rightIcon = CupertinoIcons.Default.PersonCropCircle,
-        onRightIcon = {
-            navController.toUI(UI.Settings.Main)
+        rightIconContent = {
+            ProfileButton { navController.toUI(UI.Settings.Main) }
         },
         content = {
             item("RecommendCard") {

@@ -1,4 +1,5 @@
 <resources>
+    <string name="profile_picture">Profile picture. Long press to change.</string>
     <string name="app_name" translatable="false">Flamingo</string>
     <string name="permission_grant_title">Media Read Permission</string>
     <string name="permission_grant_subtitle">Permission Request</string>
