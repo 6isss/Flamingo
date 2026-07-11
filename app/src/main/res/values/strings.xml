@@ -102,6 +102,7 @@
     <string name="page_library_playlists">Playlists</string>
     <string name="page_library_search_songs">Search in Songs</string>
     <string name="page_library_search_artists">Search in Artists</string>
+    <string name="page_library_search_playlists">Search in Playlists</string>
     <string name="playlist_unavailable_desc">No items to play.</string>
     <string name="normal_button_sort_by_name">Name</string>
     <string name="normal_button_sort_by_artist">Artist</string>
