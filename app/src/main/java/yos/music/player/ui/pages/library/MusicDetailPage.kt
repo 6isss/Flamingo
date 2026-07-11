@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -63,6 +64,7 @@ import yos.music.player.ui.theme.YosRoundedCornerShape
 import yos.music.player.ui.theme.withNight
 import yos.music.player.ui.widgets.basic.SearchTextField
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MusicDetailPage(
     title: String,
@@ -126,7 +128,7 @@ fun MusicDetailPage(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .overScrollVertical(),
+                .then(if (searchModeActive) Modifier else Modifier.overScrollVertical()),
             flingBehavior = rememberOverscrollFlingBehavior { listState },
             contentPadding = PaddingValues(bottom = 0.dp),
         ) {
@@ -182,10 +184,11 @@ fun MusicDetailPage(
             }
 
             if (enableSearch && searchModeActive) {
-                item("MusicDetailSearch") {
+                stickyHeader("MusicDetailSearch") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
                             .statusBarsPadding()
                             .padding(horizontal = 18.dp)
                             .padding(top = searchTopPadding, bottom = 8.dp),

@@ -123,14 +123,13 @@ fun LocalArtists(navController: NavController) {
                 }
             }
 
+            val keyboardController = LocalSoftwareKeyboardController.current
+
             Title(
                 title = stringResource(id = R.string.page_library_artists), onBack = {
                     navController.popBackStack()
-                }
-            ) {
-                item("SearchField") {
-                    val keyboardController = LocalSoftwareKeyboardController.current
-
+                },
+                stickyContent = {
                     SearchTextField(
                         text = searchText.value,
                         placeholder = stringResource(id = R.string.page_library_search_artists),
@@ -145,9 +144,11 @@ fun LocalArtists(navController: NavController) {
                             if (searchText.value.isNotEmpty()) {
                                 keyboardController?.hide()
                             }
-                        })
-                }
-
+                        },
+                    )
+                },
+                stickyContentHeight = 61.dp,
+            ) {
                 itemsIndexed(
                     list.value,
                     key = { _, artist -> artist }/*,
