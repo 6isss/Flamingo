@@ -105,6 +105,8 @@ fun ArtistSongs(navController: NavController)
         }
     }
 
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     Title(
         title = artistName.value,
         subTitle = stringResource(id = R.string.page_library_songs),
@@ -112,10 +114,7 @@ fun ArtistSongs(navController: NavController)
             navController.popBackStack()
         },
         listState = listState,
-    ) {
-        item("ArtistSongs_search") {
-            val keyboardController = LocalSoftwareKeyboardController.current
-
+        stickyContent = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -141,8 +140,9 @@ fun ArtistSongs(navController: NavController)
                     },
                 )
             }
-        }
-
+        },
+        stickyContentHeight = 49.dp,
+    ) {
         if (displayedSongs.value.isEmpty()) {
             item("ArtistSongs_noResults") {
                 Text(

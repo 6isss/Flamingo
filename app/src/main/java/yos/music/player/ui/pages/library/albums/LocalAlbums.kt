@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material3.Text
@@ -106,14 +105,13 @@ fun LocalAlbums(
                 }
             }
 
+            val keyboardController = LocalSoftwareKeyboardController.current
+
             TitleWithLazyVerticalGrid(
                 title = stringResource(id = R.string.page_library_albums), onBack = {
                     navController.popBackStack()
-                }
-            ) {
-                item("SearchField", span = { GridItemSpan(2) }) {
-                    val keyboardController = LocalSoftwareKeyboardController.current
-
+                },
+                stickyContent = {
                     SearchTextField(
                         text = searchText.value,
                         placeholder = stringResource(id = R.string.page_library_search_album),
@@ -121,13 +119,18 @@ fun LocalAlbums(
                             searchText.value = it
                         },
                         modifier = Modifier
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp)
+                            .padding(top = 5.dp, bottom = 12.dp),
                         onSearch = {
                             if (searchText.value.isNotEmpty()) {
                                 keyboardController?.hide()
                             }
-                        })
-                }
+                        },
+                    )
+                },
+                stickyContentHeight = 61.dp,
+            ) {
                 itemsIndexed(
                     list.value,
                     key = { _, album -> album }/*,

@@ -670,6 +670,8 @@ fun NormalMusic(navController: NavController) {
                 }
 
                 if (activePlayList == null) {
+                    val keyboardController = LocalSoftwareKeyboardController.current
+
                     Title(
                         title = pageInfo.first,
                         onBack = {
@@ -688,15 +690,12 @@ fun NormalMusic(navController: NavController) {
                                 },
                             )
                         },
-                    ) {
-                        item("SearchField") {
-                            val keyboardController = LocalSoftwareKeyboardController.current
-
+                        stickyContent = {
                             Row(
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 18.dp)
-                                    .padding(top = 5.dp),
+                                    .padding(top = 5.dp, bottom = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 SearchTextField(
@@ -711,8 +710,9 @@ fun NormalMusic(navController: NavController) {
                                     },
                                 )
                             }
-                        }
-
+                        },
+                        stickyContentHeight = 61.dp,
+                    ) {
                         item("Options") {
                             Row(
                                 Modifier

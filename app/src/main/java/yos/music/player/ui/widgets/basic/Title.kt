@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -42,16 +43,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cormor.overscroll.core.overScrollVertical
@@ -161,6 +167,8 @@ fun Title(
     rightIconContent: @Composable (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
     bottomPadding: Dp = 134.dp,
+    stickyContent: @Composable (() -> Unit)? = null,
+    stickyContentHeight: Dp = 0.dp,
     /**
      * Optional externally-owned list state. Lift this when the caller
      * needs to drive scrolling (e.g. the in-playlist pull-to-reveal
@@ -182,6 +190,8 @@ fun Title(
         grid = false,
         bottomPadding = bottomPadding,
         listState = listState,
+        stickyContent = stickyContent,
+        stickyContentHeight = stickyContentHeight,
         content = content
     )
 
@@ -194,6 +204,8 @@ fun TitleWithLazyVerticalGrid(
     onRightIcon: (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
     columns: () -> Int = { 2 },
+    stickyContent: @Composable (() -> Unit)? = null,
+    stickyContentHeight: Dp = 0.dp,
     content: LazyGridScope.() -> Unit
 ) =
     BaseTitle(
@@ -205,6 +217,8 @@ fun TitleWithLazyVerticalGrid(
         rightBarIcon = rightBarIcon,
         columns = columns,
         grid = true,
+        stickyContent = stickyContent,
+        stickyContentHeight = stickyContentHeight,
         content = content
     )
 
@@ -221,6 +235,8 @@ private fun BaseTitle(
     grid: Boolean,
     bottomPadding: Dp = 134.dp,
     listState: LazyListState? = null,
+    stickyContent: @Composable (() -> Unit)? = null,
+    stickyContentHeight: Dp = 0.dp,
     content: Any
 ) {
     if (grid) {
@@ -233,6 +249,8 @@ private fun BaseTitle(
             rightIconContent = rightIconContent,
             rightBarIcon = rightBarIcon,
             columns = columns,
+            stickyContent = stickyContent,
+            stickyContentHeight = stickyContentHeight,
             content = content as LazyGridScope.() -> Unit
         )
     } else {
@@ -246,6 +264,8 @@ private fun BaseTitle(
             rightBarIcon = rightBarIcon,
             bottomPadding = bottomPadding,
             listState = listState,
+            stickyContent = stickyContent,
+            stickyContentHeight = stickyContentHeight,
             content = content as LazyListScope.() -> Unit
         )
     }
@@ -261,11 +281,22 @@ private fun BaseTitleGrid(
     rightIconContent: @Composable (() -> Unit)? = null,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
     columns: () -> Int = { 2 },
+    stickyContent: @Composable (() -> Unit)? = null,
+    stickyContentHeight: Dp = 0.dp,
     content: LazyGridScope.() -> Unit
 ) {
     val state = rememberLazyGridState()
     val alpha = rememberAlpha(state)
     val showSmallTitle = rememberShowSmallTitle(alpha, state)
+    var titleBarHeight by remember { mutableIntStateOf(0) }
+    val stickyContentOffset by remember(state) {
+        derivedStateOf {
+            val layoutInfo = state.layoutInfo
+            layoutInfo.visibleItemsInfo.find { it.index == 1 }
+                ?.let { (it.offset.y - layoutInfo.viewportStartOffset).coerceAtLeast(titleBarHeight) }
+                ?: if (state.firstVisibleItemIndex > 1) titleBarHeight else layoutInfo.viewportEndOffset
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         val hazeState = remember(title) { HazeState() }
@@ -275,7 +306,7 @@ private fun BaseTitleGrid(
             modifier = Modifier
                 .fillMaxSize()
                 .haze(hazeState)
-                .overScrollVertical(),
+                .then(if (stickyContent == null) Modifier.overScrollVertical() else Modifier),
             flingBehavior = rememberOverscrollFlingBehavior { state },
             columns = GridCells.Fixed(columns()),
             horizontalArrangement = Arrangement.spacedBy(15.dp),
@@ -300,9 +331,26 @@ private fun BaseTitleGrid(
                     )
                 }
             }
+            if (stickyContent != null) {
+                item(key = "stickyContent", span = { GridItemSpan(columns()) }) {
+                    Spacer(modifier = Modifier.height(stickyContentHeight))
+                }
+            }
             content()
             item("navbar", span = { GridItemSpan(columns()) }) {
                 Spacer(modifier = Modifier.navigationBarsHeight(134.dp))
+            }
+        }
+
+        if (stickyContent != null) {
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(0, stickyContentOffset) }
+                    .fillMaxWidth()
+                    .height(stickyContentHeight)
+                    .background(MaterialTheme.colorScheme.background),
+            ) {
+                stickyContent()
             }
         }
 
@@ -311,7 +359,9 @@ private fun BaseTitleGrid(
             onBack = onBack,
             showSmallTitle = showSmallTitle,
             hazeState = hazeState,
-            rightBarIcon = rightBarIcon
+            rightBarIcon = rightBarIcon,
+            showDivider = stickyContent == null,
+            modifier = Modifier.onSizeChanged { titleBarHeight = it.height },
         )
     }
 }
@@ -327,11 +377,22 @@ private fun BaseTitleList(
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
     bottomPadding: Dp = 134.dp,
     listState: LazyListState? = null,
+    stickyContent: @Composable (() -> Unit)? = null,
+    stickyContentHeight: Dp = 0.dp,
     content: LazyListScope.() -> Unit
 ) {
     val state = listState ?: rememberLazyListState()
     val alpha = rememberAlpha(state)
     val showSmallTitle = rememberShowSmallTitle(alpha, state)
+    var titleBarHeight by remember { mutableIntStateOf(0) }
+    val stickyContentOffset by remember(state) {
+        derivedStateOf {
+            val layoutInfo = state.layoutInfo
+            layoutInfo.visibleItemsInfo.find { it.index == 1 }
+                ?.let { (it.offset - layoutInfo.viewportStartOffset).coerceAtLeast(titleBarHeight) }
+                ?: if (state.firstVisibleItemIndex > 1) titleBarHeight else layoutInfo.viewportEndOffset
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         val hazeState = remember(title) { HazeState() }
@@ -341,7 +402,7 @@ private fun BaseTitleList(
             modifier = Modifier
                 .fillMaxSize()
                 .haze(hazeState)
-                .overScrollVertical(),
+                .then(if (stickyContent == null) Modifier.overScrollVertical() else Modifier),
             flingBehavior = rememberOverscrollFlingBehavior { state },
             contentPadding = PaddingValues(top = 54.dp)
         ) {
@@ -359,9 +420,26 @@ private fun BaseTitleList(
                     )
                 }
             }
+            if (stickyContent != null) {
+                item("stickyContent") {
+                    Spacer(modifier = Modifier.height(stickyContentHeight))
+                }
+            }
             content()
             item("navbar") {
                 Spacer(modifier = Modifier.navigationBarsHeight(bottomPadding))
+            }
+        }
+
+        if (stickyContent != null) {
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(0, stickyContentOffset) }
+                    .fillMaxWidth()
+                    .height(stickyContentHeight)
+                    .background(MaterialTheme.colorScheme.background),
+            ) {
+                stickyContent()
             }
         }
 
@@ -370,7 +448,9 @@ private fun BaseTitleList(
             onBack = onBack,
             showSmallTitle = showSmallTitle,
             hazeState = hazeState,
-            rightBarIcon = rightBarIcon
+            rightBarIcon = rightBarIcon,
+            showDivider = stickyContent == null,
+            modifier = Modifier.onSizeChanged { titleBarHeight = it.height },
         )
     }
 }
@@ -462,10 +542,12 @@ private fun TitleBar(
     onBack: (() -> Unit)?,
     rightBarIcon: @Composable (RowScope.() -> Unit)? = null,
     showSmallTitle: State<Boolean>,
-    hazeState: HazeState
+    hazeState: HazeState,
+    showDivider: Boolean = true,
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .statusBarsHeight(54.dp)
             .clickable(enabled = false, onClick = {})
@@ -560,7 +642,7 @@ private fun TitleBar(
             }
 
             AnimatedVisibility(
-                visible = showSmallTitle.value,
+                visible = showSmallTitle.value && showDivider,
                 enter = fadeIn(animationSpec = tween(120, easing = EaseOut)),
                 exit = fadeOut(animationSpec = tween(120, easing = EaseInCirc))
             ) {

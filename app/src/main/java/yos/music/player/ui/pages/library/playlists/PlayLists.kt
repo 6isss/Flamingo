@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -109,9 +110,10 @@ import yos.music.player.ui.toUI
 import yos.music.player.ui.widgets.basic.Title
 import yos.music.player.ui.widgets.basic.TitleBarIcon
 import yos.music.player.ui.widgets.basic.BlurredMenuContainer
+import yos.music.player.ui.widgets.basic.SearchTextField
 import yos.music.player.ui.widgets.playlist.PlayListPickerSheet
 
-private const val FirstPlayListLazyListIndex = 3
+private const val FirstPlayListLazyListIndex = 4
 private val PlayListContextMenuEstimatedHeight = 342.dp
 
 @Composable
@@ -124,7 +126,9 @@ fun PlayLists(navController: NavController) {
     val unpinned = playLists.filter { !it.isPinned }.sortedBy { it.name }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val listState = rememberLazyListState()
+    val searchText = remember { mutableStateOf("") }
     val reorderActive = remember {
         mutableStateOf(false)
     }
@@ -154,8 +158,11 @@ fun PlayLists(navController: NavController) {
     } else {
         pinned
     }
-    val visibleAll = visiblePinned + unpinned
+    val visibleAll = (visiblePinned + unpinned).filter {
+        searchText.value.isBlank() || it.name.contains(searchText.value, ignoreCase = true)
+    }
     val enterReorderMode = {
+        searchText.value = ""
         reorderOrder.clear()
         reorderOrder.addAll(pinned.map { it.listID })
         reorderActive.value = true
@@ -308,6 +315,23 @@ fun PlayLists(navController: NavController) {
                 }
             } else null,
             listState = listState,
+            stickyContent = {
+                SearchTextField(
+                    text = searchText.value,
+                    placeholder = stringResource(id = R.string.page_library_search_playlists),
+                    onValueChange = { searchText.value = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp)
+                        .padding(top = 5.dp, bottom = 12.dp),
+                    onSearch = {
+                        if (searchText.value.isNotEmpty()) {
+                            keyboardController?.hide()
+                        }
+                    },
+                )
+            },
+            stickyContentHeight = 61.dp,
             content = {
                 item("AddList") {
                     val targetTitle = context.getString(R.string.page_library_playlists_add_title)
