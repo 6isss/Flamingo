@@ -5,12 +5,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
-import kotlin.math.absoluteValue
 import yos.music.player.R
 import yos.music.player.data.models.ImageViewModel
 import yos.music.player.ui.pages.library.Library
@@ -68,18 +71,22 @@ fun HomeNav(
             key = { page -> page },
             userScrollEnabled = false
         ) { page ->
-            // Subtle zoom "bump" while moving between tabs: the page
-            // leaving/entering shrinks just a touch and springs back.
-            val pageOffset = ((pagerState.currentPage - page) +
-                pagerState.currentPageOffsetFraction).absoluteValue
-            val pageScale = 1f - (pageOffset.coerceIn(0f, 1f) * 0.035f)
+            // Subtle "bump": the incoming tab settles from a hair smaller
+            // back to full size. Read at composition time (never during
+            // placement) so it can't fight Compose's lookahead pass.
+            val selected = pagerState.currentPage == page
+            val pageScale by animateFloatAsState(
+                targetValue = if (selected) 1f else 0.97f,
+                animationSpec = spring(
+                    dampingRatio = 0.72f,
+                    stiffness = Spring.StiffnessMediumLow
+                ),
+                label = "TabBumpScale"
+            )
             Column(
                 Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = pageScale
-                        scaleY = pageScale
-                    }
+                    .scale(pageScale)
             ) {
                 when (page) {
                     0 -> Home(navController, imageViewModel)
