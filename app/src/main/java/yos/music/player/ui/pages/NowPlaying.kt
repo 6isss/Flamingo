@@ -98,6 +98,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -146,6 +148,8 @@ import com.google.accompanist.insets.statusBarsPadding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import yos.music.player.R
@@ -842,17 +846,44 @@ private fun ColumnScope.Album(
         .padding(bottom = 33.dp),
     contentAlignment = Alignment.BottomCenter
 ) {
+    val springSpec: AnimationSpec<Float> = remember("Album_springSpec") {
+        SpringSpec(stiffness = 300f, dampingRatio = 1f, visibilityThreshold = 0.001f)
+    }
+
+    val tweenSpec: AnimationSpec<Float> = remember("Album_tweenSpec") {
+        TweenSpec(durationMillis = 350, easing = EaseOutQuart)
+    }
+
+    // Playback reports a short paused state while a track changes. Only honour a
+    // pause that actually sticks, so skipping tracks no longer bounces the cover.
+    val settledPlaying = remember("Album_settledPlaying") { mutableStateOf(isPlaying()) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { isPlaying() }.collectLatest { playing ->
+            if (playing) {
+                settledPlaying.value = true
+            } else {
+                delay(400)
+                settledPlaying.value = false
+            }
+        }
+    }
+
+    val scale = animateFloatAsState(
+        targetValue = if (settledPlaying.value) 0f else 1f,
+        animationSpec = if (settledPlaying.value) springSpec else tweenSpec,
+        visibilityThreshold = 0.001f,
+        label = "Album_scale"
+    )
+
     YosWrapper {
+        val dp = (7 + (27 * scale.value)).dp
         ShadowImageWithCache(
             dataLambda = { music()?.thumb }, contentDescription = null, modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.ModulateAlpha
                 }
-                // Keep the cover at one size. Playback briefly reports a paused
-                // state while tracks change; animating from that state made the
-                // artwork visibly bounce and exposed the content underneath.
-                .padding(start = 7.dp, end = 7.dp, bottom = 7.dp)
+                .padding(start = dp, end = dp, bottom = dp)
                 .then(modifier),
             imageQuality = ImageQuality.RAW,
             shadowOverlay = true,
@@ -862,6 +893,7 @@ private fun ColumnScope.Album(
         )
     }
 }
+
 
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -2442,6 +2474,17 @@ private fun PlayerControl(
                 // 进度条
                 YosWrapper {
                     //println("重组：控制区域内部 - 进度条")
+                    // The bar swells while the user scrubs and settles back on release.
+                    val trackHeight = animateDpAsState(
+                        targetValue = if (isSliding.value) 13.dp else 7.dp,
+                        animationSpec = SpringSpec(
+                            stiffness = 700f,
+                            dampingRatio = 1f,
+                            visibilityThreshold = 0.1.dp
+                        ),
+                        label = "ProgressTrackHeight"
+                    )
+
                     Slider(
                         value = sliderPosition.floatValue,
                         onValueChange = { newValue ->
@@ -2477,8 +2520,9 @@ private fun PlayerControl(
                             Track(
                                 sliderPositions = SliderPositions(
                                     initialActiveRange = 0f..(sliderPosition.floatValue / playingDuration.longValue)
-                                ), height = 7.dp
+                                ), height = trackHeight.value
                             )
+
                         }
                     )
                 }
@@ -2778,6 +2822,19 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                 )
             }
 
+            // Matches the playback bar: grows while dragging, settles on release.
+            val volumeTrackHeight = animateDpAsState(
+                targetValue = if (sliding.value) 13.dp else 7.dp,
+                animationSpec = SpringSpec(
+                    stiffness = 700f,
+                    dampingRatio = 1f,
+                    visibilityThreshold = 0.1.dp
+                ),
+                label = "VolumeTrackHeight"
+            )
+
+
+
             Slider(
                 value = (animatedProgress.value * maxVolume),
                 onValueChange = { newValue ->
@@ -2794,16 +2851,19 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                 ),
                 modifier = Modifier
                     .weight(1f)
+                    .height(14.dp)
                     .padding(start = 1.5.dp, end = 5.dp),
+
                 thumb = {
                 },
                 track = {
                     Track(
                         sliderPositions = SliderPositions(
                             initialActiveRange = 0f..animatedProgress.value
-                        ), height = 7.dp
+                        ), height = volumeTrackHeight.value
                     )
                 },
+
                 onValueChangeFinished = {
                     Vibrator.longClick(context)
                     sliding.value = false
