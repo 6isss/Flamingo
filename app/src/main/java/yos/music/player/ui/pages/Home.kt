@@ -81,6 +81,15 @@ fun Home(
             ProfileButton { navController.toUI(UI.Settings.Main) }
         },
         content = {
+            item("QuickTilesRow") {
+                QuickTilesRow()
+            }
+            item("RecommendGrid") {
+                RecommendGrid()
+            }
+            item("GenresRow") {
+                GenresRow()
+            }
             item("RecommendCard") {
                 RecommendCard(imageViewModel)
             }
