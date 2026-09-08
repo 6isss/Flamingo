@@ -842,31 +842,17 @@ private fun ColumnScope.Album(
         .padding(bottom = 33.dp),
     contentAlignment = Alignment.BottomCenter
 ) {
-    val springSpec: AnimationSpec<Float> = remember("Album_springSpec") {
-        SpringSpec(stiffness = 300f, dampingRatio = 1f, visibilityThreshold = 0.001f)
-    }
-
-    val tweenSpec: AnimationSpec<Float> = remember("Album_tweenSpec") {
-        TweenSpec(durationMillis = 350, easing = EaseOutQuart)
-    }
-
-    val scale = animateFloatAsState(
-        targetValue = if (isPlaying()) 0f else 1f,
-        animationSpec = if (isPlaying()) springSpec else tweenSpec,
-        visibilityThreshold = 0.001f
-    )
-
     YosWrapper {
-        val dp = (7 + (27 * scale.value)).dp
         ShadowImageWithCache(
             dataLambda = { music()?.thumb }, contentDescription = null, modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.ModulateAlpha
-                    // scaleX = scale.value
-                    // scaleY = scale.value
                 }
-                .padding(start = dp, end = dp, bottom = dp)
+                // Keep the cover at one size. Playback briefly reports a paused
+                // state while tracks change; animating from that state made the
+                // artwork visibly bounce and exposed the content underneath.
+                .padding(start = 7.dp, end = 7.dp, bottom = 7.dp)
                 .then(modifier),
             imageQuality = ImageQuality.RAW,
             shadowOverlay = true,
