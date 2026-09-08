@@ -629,15 +629,15 @@ class MainActivity : BaseActivity() {
                                                     context.getString(R.string.page_home_title)
                                                 val library =
                                                     context.getString(R.string.page_library_title)
-                                                val stats =
-                                                    context.getString(R.string.page_stats_title)
+                                                val search =
+                                                    context.getString(R.string.page_search_title)
                                                 if (route.value == UI.HomePage) {
                                                     scope.launch {
                                                         pagerState.animateScrollToPage(
                                                             when (it) {
                                                                 home -> 0
                                                                 library -> 1
-                                                                stats -> 2
+                                                                search -> 2
                                                                 else -> 0
                                                             }
                                                         )
@@ -648,7 +648,7 @@ class MainActivity : BaseActivity() {
                                                             when (it) {
                                                                 home -> 0
                                                                 library -> 1
-                                                                stats -> 2
+                                                                search -> 2
                                                                 else -> 0
                                                             }
                                                         )
@@ -662,15 +662,15 @@ class MainActivity : BaseActivity() {
                                             items = listOf(
                                                 NavItem(
                                                     stringResource(id = R.string.page_home_title),
-                                                    R.drawable.flamingo_icon
+                                                    R.drawable.ic_uitabbar_home_accord
                                                 ),
                                                 NavItem(
                                                     stringResource(id = R.string.page_library_title),
                                                     R.drawable.ic_uitabbar_library
                                                 ),
                                                 NavItem(
-                                                    stringResource(id = R.string.page_stats_title),
-                                                    R.drawable.ic_uitabbar_stats
+                                                    stringResource(id = R.string.page_search_title),
+                                                    R.drawable.ic_uitabbar_search_accord
                                                 )
                                             ),
                                             modifier = Modifier
