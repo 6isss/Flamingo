@@ -6,6 +6,7 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.TransitionDrawable
 import android.net.Uri
 import android.view.animation.AccelerateDecelerateInterpolator
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -127,10 +128,23 @@ fun YosFloatingLight(
                     }
                 }) {
                     if (drawable.value != null) {
-                        if (it.drawable != drawable.value) {
+                        val newDrawable = drawable.value!!
+                        val currentDrawable =
+                            (it.drawable as? TransitionDrawable)?.getDrawable(1) ?: it.drawable
+                        if (currentDrawable != newDrawable) {
                             val thisOptionType = Option.Set.name
                             if (lastOption.value == thisOptionType) return@AndroidView
-                            it.setImageDrawable(drawable.value!!)
+                            // Crossfade the old artwork into the new one
+                            // instead of swapping it abruptly.
+                            if (currentDrawable != null) {
+                                val transition =
+                                    TransitionDrawable(arrayOf(currentDrawable, newDrawable))
+                                transition.isCrossFadeEnabled = true
+                                it.setImageDrawable(transition)
+                                transition.startTransition(700)
+                            } else {
+                                it.setImageDrawable(newDrawable)
+                            }
                             lastOption.value = thisOptionType
                         } else if (!isPlaying() || !active) {
                             val thisOptionType = Option.Pause.name
