@@ -12,6 +12,13 @@
     <string name="home_recommend_title">Try These</string>
     <string name="home_recommend_subtitle">From Your Library</string>
     <string name="home_recently_played_title">Recently Played</string>
+    <string name="page_search_title">Search</string>
+    <string name="search_library_placeholder">Songs, Artists, Albums…</string>
+    <string name="search_no_results">No Results</string>
+    <string name="home_quick_most_played">Most Played</string>
+    <string name="home_quick_shuffle">Shuffle</string>
+    <string name="home_grid_recommend_title">More to Explore</string>
+    <string name="home_genres_title">Genres</string>
     <string name="playlist_unavailable_title">Unable to Display Playlist</string>
     <string name="tip_scanning">Pulling songs from the library…</string>
     <string name="tip_no_song">No items to play.</string>
