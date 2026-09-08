@@ -6,9 +6,8 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.TransitionDrawable
 import android.net.Uri
-import android.view.animation.AccelerateDecelerateInterpolator
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,31 +27,18 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.applyCanvas
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.flaviofaria.kenburnsview.KenBurnsView
-import com.flaviofaria.kenburnsview.RandomTransitionGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import yos.music.player.code.utils.others.BitmapResolver
 import yos.music.player.data.libraries.SettingsLibrary.NowplayingBackgroundEffect
 import yos.music.player.ui.pages.NowPlayingPage
 import yos.music.player.ui.widgets.basic.YosWrapper
-
-@Stable
-private enum class Option {
-    Set,
-    Pause,
-    Resume,
-    Init
-}
 
 @Composable
 fun YosFloatingLight(
@@ -105,59 +90,27 @@ fun YosFloatingLight(
         }
 
         if (NowplayingBackgroundEffect) {
-            val lastOption = remember("YosFloatingLight_lastOption") {
-                mutableStateOf(Option.Init.name)
-            }
             YosWrapper {
-                val lifecycleState =
-                    LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
-                val active = lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)&&!showMiniPlayer()
-                AndroidView(factory = {
-                    KenBurnsView(it).apply {
-                        setTransitionGenerator(
-                            RandomTransitionGenerator(
-                                12000,
-                                AccelerateDecelerateInterpolator()
-                            )
-                        )
-                    }
-                }, modifier = modifier.drawWithCache {
-                    onDrawBehind {
-                        if (useBackground.value) {
-                        drawRect(Color.Black)
+                // The background transition follows only resolved artwork. It no
+                // longer restarts when playback briefly toggles during next/prev.
+                Crossfade(
+                    targetState = drawable.value,
+                    animationSpec = tween(
+                        durationMillis = 900,
+                        easing = FastOutSlowInEasing
+                    ),
+                    label = "PlayerBackgroundArtwork"
+                ) { backgroundDrawable ->
+                    AsyncImage(
+                        model = backgroundDrawable,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = modifier.drawWithCache {
+                            onDrawBehind {
+                                if (useBackground.value) drawRect(Color.Black)
                             }
-                    }
-                }) {
-                    if (drawable.value != null) {
-                        val newDrawable = drawable.value!!
-                        val currentDrawable =
-                            (it.drawable as? TransitionDrawable)?.getDrawable(1) ?: it.drawable
-                        if (currentDrawable != newDrawable) {
-                            val thisOptionType = Option.Set.name
-                            // Crossfade the old artwork into the new one
-                            // instead of swapping it abruptly.
-                            if (currentDrawable != null) {
-                                val transition =
-                                    TransitionDrawable(arrayOf(currentDrawable, newDrawable))
-                                transition.isCrossFadeEnabled = true
-                                it.setImageDrawable(transition)
-                                transition.startTransition(700)
-                            } else {
-                                it.setImageDrawable(newDrawable)
-                            }
-                            lastOption.value = thisOptionType
-                        } else if (!isPlaying() || !active) {
-                            val thisOptionType = Option.Pause.name
-                            if (lastOption.value == thisOptionType) return@AndroidView
-                            it.pause()
-                            lastOption.value = thisOptionType
-                        } else {
-                            val thisOptionType = Option.Resume.name
-                            if (lastOption.value == thisOptionType) return@AndroidView
-                            it.resume()
-                            lastOption.value = thisOptionType
                         }
-                    }
+                    )
                 }
             }
         } else {
