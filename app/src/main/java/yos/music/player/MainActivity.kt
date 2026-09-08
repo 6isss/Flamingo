@@ -56,7 +56,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.ripple
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -100,9 +99,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.insets.ProvideWindowInsets
 import com.google.accompanist.insets.navigationBarsHeight
-import com.google.accompanist.navigation.animation.AnimatedNavHost
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
@@ -325,7 +324,9 @@ class MainActivity : BaseActivity() {
                             mutableStateOf(defaultHome)
                         }
 
-                        val pagerState = rememberPagerState(pageCount = { 3 })
+                        val selectedHomePage = rememberSaveable("MainActivity_selectedHomePage") {
+                            mutableIntStateOf(0)
+                        }
 
                         // 以下为实际显示
 
@@ -442,7 +443,7 @@ class MainActivity : BaseActivity() {
                                             composable(UI.HomePage) {
                                                 HomeNav(
                                                     navController,
-                                                    pagerState,
+                                                    selectedHomePage.intValue,
                                                     imageViewModel
                                                 ) {
                                                     nowLabel.value = it
@@ -632,26 +633,18 @@ class MainActivity : BaseActivity() {
                                                 val search =
                                                     context.getString(R.string.page_search_title)
                                                 if (route.value == UI.HomePage) {
-                                                    scope.launch {
-                                                        pagerState.animateScrollToPage(
-                                                            when (it) {
-                                                                home -> 0
-                                                                library -> 1
-                                                                search -> 2
-                                                                else -> 0
-                                                            }
-                                                        )
+                                                    selectedHomePage.intValue = when (it) {
+                                                        home -> 0
+                                                        library -> 1
+                                                        search -> 2
+                                                        else -> 0
                                                     }
                                                 } else {
-                                                    scope.launch {
-                                                        pagerState.scrollToPage(
-                                                            when (it) {
-                                                                home -> 0
-                                                                library -> 1
-                                                                search -> 2
-                                                                else -> 0
-                                                            }
-                                                        )
+                                                    selectedHomePage.intValue = when (it) {
+                                                        home -> 0
+                                                        library -> 1
+                                                        search -> 2
+                                                        else -> 0
                                                     }
                                                     navController.popBackStack(
                                                         UI.HomePage,
