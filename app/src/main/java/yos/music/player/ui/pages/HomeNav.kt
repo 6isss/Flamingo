@@ -1,13 +1,16 @@
 package yos.music.player.ui.pages
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
+import kotlin.math.absoluteValue
 import yos.music.player.R
 import yos.music.player.data.models.ImageViewModel
 import yos.music.player.ui.pages.library.Library
@@ -30,7 +33,7 @@ fun HomeNav(
         val context = LocalContext.current
         val home = context.getString(R.string.page_home_title)
         val library = context.getString(R.string.page_library_title)
-        val stats = context.getString(R.string.page_stats_title)
+        val search = context.getString(R.string.page_search_title)
 
         //val pagerState = rememberPagerState(pageCount = { 2 })
         /*val nowPageIndex = when (nowPage.value) {
@@ -51,7 +54,7 @@ fun HomeNav(
                     when (pagerState.currentPage) {
                     0 -> home
                     1 -> library
-                    2 -> stats
+                    2 -> search
                     else -> home
                     }
                 )
@@ -65,10 +68,24 @@ fun HomeNav(
             key = { page -> page },
             userScrollEnabled = false
         ) { page ->
-            when (page) {
-                0 -> Home(navController, imageViewModel)
-                1 -> Library(navController)
-                2 -> Stats(navController)
+            // Subtle zoom "bump" while moving between tabs: the page
+            // leaving/entering shrinks just a touch and springs back.
+            val pageOffset = ((pagerState.currentPage - page) +
+                pagerState.currentPageOffsetFraction).absoluteValue
+            val pageScale = 1f - (pageOffset.coerceIn(0f, 1f) * 0.035f)
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = pageScale
+                        scaleY = pageScale
+                    }
+            ) {
+                when (page) {
+                    0 -> Home(navController, imageViewModel)
+                    1 -> Library(navController)
+                    2 -> Search(navController)
+                }
             }
         }
     }
