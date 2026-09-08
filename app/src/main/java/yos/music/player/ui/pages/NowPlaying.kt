@@ -33,6 +33,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -519,7 +521,12 @@ fun NowPlaying(
                                             AnimatedContent(
                                                 targetState = thisMusicPlaying.value,
                                                 transitionSpec = {
-                                                    fadeIn() togetherWith fadeOut()
+                                                    // Snap the container size so the title/artist
+                                                    // don't visibly jump up/down between tracks.
+                                                    fadeIn() togetherWith fadeOut() using SizeTransform(
+                                                        clip = false,
+                                                        sizeAnimationSpec = { _, _ -> snap() }
+                                                    )
                                                 }, modifier = Modifier.padding(horizontal = 32.dp)
                                             ) {
                                                 Row(
