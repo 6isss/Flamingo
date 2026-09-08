@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
@@ -42,7 +43,9 @@ import yos.music.player.data.libraries.YosMediaItem
 import yos.music.player.data.libraries.artistsName
 import yos.music.player.data.libraries.defaultArtistsName
 import yos.music.player.data.libraries.defaultTitle
+import yos.music.player.ui.UI
 import yos.music.player.ui.theme.YosRoundedCornerShape
+import yos.music.player.ui.toUI
 
 private fun List<YosMediaItem>.pickRandom(count: Int): List<YosMediaItem> {
     if (size <= count) {return shuffled()}
@@ -52,7 +55,7 @@ private fun List<YosMediaItem>.pickRandom(count: Int): List<YosMediaItem> {
 }
 
 @Composable
-fun QuickTilesRow() {
+fun QuickTilesRow(navController: NavController) {
     val musicList = runCatching { MusicLibrary.songs }.getOrDefault(emptyList())
     if (musicList.isEmpty()) {return}
 
@@ -81,9 +84,7 @@ fun QuickTilesRow() {
             modifier = Modifier.weight(1f),
             onClick = {
                 if (!mostPlayedEnabled) {return@QuickTile}
-                scope.launch(Dispatchers.IO) {
-                    MediaController.prepare(mostPlayed.first(), mostPlayed)
-                }
+                navController.toUI(UI.StatsTracks)
             }
         )
         QuickTile(

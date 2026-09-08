@@ -63,18 +63,20 @@ fun YosFloatingLight(
     nowPage: () -> String,
     showMiniPlayer: () -> Boolean
 ) {
-    val drawable = remember(album) {
+    // Keep the last resolved artwork while the next one is decoding, so the
+    // background never flashes back to the bare page behind the player.
+    val drawable = remember {
         mutableStateOf<Drawable?>(null)
     }
 
     val context = LocalContext.current
-    val imageLoader = ImageLoader(context)
+    val imageLoader = remember(context) { ImageLoader(context) }
     YosWrapper {
         LaunchedEffect(album()) {
-            if (album() == null) return@LaunchedEffect
+            val albumUri = album() ?: return@LaunchedEffect
             withContext(Dispatchers.IO) {
                 val request = ImageRequest.Builder(context)
-                    .data(album())
+                    .data(albumUri)
                     .build()
                 val thisBitmap = imageLoader.execute(request).drawable?.toBitmap()?.run {
                     BitmapResolver.bitmapCompress(this)
@@ -85,7 +87,6 @@ fun YosFloatingLight(
                     ).toDrawable(context.resources)
                     thisBitmap.recycle()
                 }
-                imageLoader.shutdown()
             }
         }
     }
@@ -99,7 +100,7 @@ fun YosFloatingLight(
 
         val useBackground = remember("YosFloatingLight_useBackground") {
             derivedStateOf {
-                album() == null
+                album() == null && drawable.value == null
             }
         }
 
@@ -133,7 +134,6 @@ fun YosFloatingLight(
                             (it.drawable as? TransitionDrawable)?.getDrawable(1) ?: it.drawable
                         if (currentDrawable != newDrawable) {
                             val thisOptionType = Option.Set.name
-                            if (lastOption.value == thisOptionType) return@AndroidView
                             // Crossfade the old artwork into the new one
                             // instead of swapping it abruptly.
                             if (currentDrawable != null) {

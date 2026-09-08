@@ -82,7 +82,7 @@ fun Home(
         },
         content = {
             item("QuickTilesRow") {
-                QuickTilesRow()
+                QuickTilesRow(navController)
             }
             item("RecommendGrid") {
                 RecommendGrid()

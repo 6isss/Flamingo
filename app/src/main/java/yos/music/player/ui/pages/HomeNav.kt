@@ -1,10 +1,12 @@
 package yos.music.player.ui.pages
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,8 +52,12 @@ fun HomeNav(
         targetState = selectedPage,
         modifier = Modifier.fillMaxSize(),
         transitionSpec = {
-            fadeIn(tween(200, easing = EaseOutCubic)) togetherWith
-                fadeOut(tween(120, easing = EaseOutCubic))
+            (
+                fadeIn(tween(220, easing = EaseOutCubic)) +
+                    scaleIn(initialScale = 0.97f, animationSpec = tween(260, easing = EaseOutCubic))
+                ) togetherWith
+                fadeOut(tween(140, easing = EaseOutCubic)) using
+                SizeTransform(clip = false)
         },
         label = "HomeTabTransition"
     ) { page ->
