@@ -25,6 +25,11 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.TweenSpec
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
@@ -532,8 +537,8 @@ fun NowPlaying(
                                                     // Gentle ~800ms ease-in-out fade between
                                                     // tracks; container size snaps so the
                                                     // artwork above never moves.
-                                                    fadeIn(tween(400, delayMillis = 400, easing = EaseInOut)) togetherWith
-                                                            fadeOut(tween(400, easing = EaseInOut)) using SizeTransform(
+                                                    fadeIn(tween(300, delayMillis = 300, easing = EaseInOut)) togetherWith
+                                                            fadeOut(tween(300, easing = EaseInOut)) using SizeTransform(
                                                         clip = false,
                                                         sizeAnimationSpec = { _, _ -> snap() }
                                                     )
@@ -880,23 +885,30 @@ private fun ColumnScope.Album(
         }
     }
 
-    val artworkScale = animateFloatAsState(
-        targetValue = if (settledPlaying.value) 1f else 0.92f,
-        animationSpec = tween(durationMillis = 420, easing = EaseInOut),
+    // Upstream bounce: spring in on resume, ease-out tween on pause. Driven by the
+    // settled state above so a track switch never triggers it.
+    val springSpec: AnimationSpec<Float> = remember("Album_springSpec") {
+        SpringSpec(stiffness = 300f, dampingRatio = 1f, visibilityThreshold = 0.001f)
+    }
+    val tweenSpec: AnimationSpec<Float> = remember("Album_tweenSpec") {
+        TweenSpec(durationMillis = 350, easing = EaseOutQuart)
+    }
+    val scale = animateFloatAsState(
+        targetValue = if (settledPlaying.value) 0f else 1f,
+        animationSpec = if (settledPlaying.value) springSpec else tweenSpec,
         visibilityThreshold = 0.001f,
-        label = "AlbumScale"
+        label = "AlbumBounce"
     )
 
     YosWrapper {
+        val dp = (7 + (27 * scale.value)).dp
         ShadowImageWithCache(
             dataLambda = { music()?.thumb }, contentDescription = null, modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.ModulateAlpha
-                    scaleX = artworkScale.value
-                    scaleY = artworkScale.value
                 }
-                .padding(start = 7.dp, end = 7.dp, bottom = 7.dp)
+                .padding(start = dp, end = dp, bottom = dp)
                 .then(modifier),
             imageQuality = ImageQuality.RAW,
             cornerRadius = 4.dp,
@@ -2535,7 +2547,6 @@ private fun PlayerControl(
                             }
                             .graphicsLayer {
                                 scaleX = progressSwell.widthScale
-                                scaleY = progressSwell.heightScale
                                 this.alpha = progressSwell.alpha
                             }
                             .height(14.dp),
@@ -2544,8 +2555,8 @@ private fun PlayerControl(
                         track = {
                             Track(
                                 sliderPositions = SliderPositions(
-                                    initialActiveRange = 0f..(sliderPosition.floatValue / playingDuration.longValue)
-                                ), height = 7.dp
+                                    initialActiveRange = 0f..(sliderPosition.floatValue / playingDuration.longValue.coerceAtLeast(1L))
+                                ), height = 7.dp, strokeHeight = progressSwell.thickness
                             )
 
                         }
@@ -2571,12 +2582,12 @@ private fun PlayerControl(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.3.sp,
-                                color = Color.White.copy(alpha = 0.3f),
+                                color = Color.White,
                                 modifier = Modifier
                                     .overlayEffect()
                                     .graphicsLayer {
-                                        scaleX = progressSwell.contentScale
-                                        scaleY = progressSwell.contentScale
+                                        translationX = -progressSwell.labelOffset.toPx()
+                                        this.alpha = progressSwell.labelAlpha
                                     }
                             )
                             Text(
@@ -2584,12 +2595,12 @@ private fun PlayerControl(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.3.sp,
-                                color = Color.White.copy(alpha = 0.3f),
+                                color = Color.White,
                                 modifier = Modifier
                                     .overlayEffect()
                                     .graphicsLayer {
-                                        scaleX = progressSwell.contentScale
-                                        scaleY = progressSwell.contentScale
+                                        translationX = progressSwell.labelOffset.toPx()
+                                        this.alpha = progressSwell.labelAlpha
                                     }
                             )
                         }
@@ -2850,10 +2861,9 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
             contentDescription = "Mute",
             modifier = Modifier
                 .size(20.dp)
-                .alpha(0.45f)
                 .graphicsLayer {
-                    scaleX = volumeSwell.contentScale
-                    scaleY = volumeSwell.contentScale
+                    translationX = -volumeSwell.labelOffset.toPx()
+                    this.alpha = volumeSwell.iconAlpha
                 }
         )
 
@@ -2898,7 +2908,6 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                     }
                     .graphicsLayer {
                         scaleX = volumeSwell.widthScale
-                        scaleY = volumeSwell.heightScale
                         this.alpha = volumeSwell.alpha
                     },
 
@@ -2908,7 +2917,7 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                     Track(
                         sliderPositions = SliderPositions(
                             initialActiveRange = 0f..animatedProgress.value
-                        ), height = 7.dp
+                        ), height = 7.dp, strokeHeight = volumeSwell.thickness
                     )
                 },
 
@@ -2923,10 +2932,9 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
             contentDescription = "Max Volume",
             modifier = Modifier
                 .size(20.dp)
-                .alpha(0.45f)
                 .graphicsLayer {
-                    scaleX = volumeSwell.contentScale
-                    scaleY = volumeSwell.contentScale
+                    translationX = volumeSwell.labelOffset.toPx()
+                    this.alpha = volumeSwell.iconAlpha
                 }
         )
     }
@@ -2934,46 +2942,63 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
 
 @Stable
 private data class ControlSwell(
+    val thickness: Dp,
     val widthScale: Float,
-    val heightScale: Float,
     val alpha: Float,
-    val contentScale: Float
+    val labelOffset: Dp,
+    val labelAlpha: Float,
+    val iconAlpha: Float
 )
 
+/**
+ * Apple Music style swell measured from the reference recording: on touch the bar
+ * grows to ~3x thickness and ~5% wider, brightens, and the labels/icons brighten and
+ * are pushed slightly outward with the bar ends. A critically damped spring gives the
+ * fast start / soft settle (~250 ms) in both directions.
+ */
 @Composable
 private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
-    val animationSpec = tween<Float>(
-        durationMillis = if (active) 180 else 260,
-        easing = EaseInOut
+    val floatSpec = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 700f)
+    val dpSpec = spring<Dp>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 700f)
+    val thickness by animateDpAsState(
+        targetValue = if (active) 22.dp else 7.dp,
+        animationSpec = dpSpec,
+        label = "${label}Thickness"
     )
     val widthScale by animateFloatAsState(
-        targetValue = if (active) 1.08f else 1f,
-        animationSpec = animationSpec,
+        targetValue = if (active) 1.05f else 1f,
+        animationSpec = floatSpec,
         label = "${label}Width"
     )
-    val heightScale by animateFloatAsState(
-        targetValue = if (active) 2f else 1f,
-        animationSpec = animationSpec,
-        label = "${label}Height"
-    )
     val alpha by animateFloatAsState(
-        targetValue = if (active) 0.95f else 0.45f,
-        animationSpec = animationSpec,
+        targetValue = if (active) 0.9f else 0.6f,
+        animationSpec = floatSpec,
         label = "${label}Alpha"
     )
-    val contentScale by animateFloatAsState(
-        targetValue = if (active) 1.12f else 1f,
-        animationSpec = animationSpec,
-        label = "${label}Content"
+    val labelOffset by animateDpAsState(
+        targetValue = if (active) 6.dp else 0.dp,
+        animationSpec = dpSpec,
+        label = "${label}LabelOffset"
     )
-    return ControlSwell(widthScale, heightScale, alpha, contentScale)
+    val labelAlpha by animateFloatAsState(
+        targetValue = if (active) 0.6f else 0.3f,
+        animationSpec = floatSpec,
+        label = "${label}LabelAlpha"
+    )
+    val iconAlpha by animateFloatAsState(
+        targetValue = if (active) 0.8f else 0.45f,
+        animationSpec = floatSpec,
+        label = "${label}IconAlpha"
+    )
+    return ControlSwell(thickness, widthScale, alpha, labelOffset, labelAlpha, iconAlpha)
 }
 
 @Composable
 private fun Track(
     sliderPositions: SliderPositions,
     modifier: Modifier = Modifier,
-    height: Dp
+    height: Dp,
+    strokeHeight: Dp = height
 ) = YosWrapper {
     val inactiveTrackColor = Color.White.copy(alpha = 0.5f)
     val activeTrackColor = Color.White
@@ -2990,7 +3015,7 @@ private fun Track(
         val sliderStart = if (isRtl) sliderRight else sliderLeft
         val sliderEnd = if (isRtl) sliderLeft else sliderRight
         val tickSize = 2.0.dp.toPx()
-        val trackStrokeWidth = height.toPx()
+        val trackStrokeWidth = strokeHeight.toPx()
         drawLine(
             inactiveTrackColor,
             sliderStart,

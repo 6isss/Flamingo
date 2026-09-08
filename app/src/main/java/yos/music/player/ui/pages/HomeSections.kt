@@ -1,5 +1,6 @@
 package yos.music.player.ui.pages
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.imageLoader
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -156,6 +159,23 @@ fun RecommendGrid() {
     if (gridSongs.isEmpty()) {return}
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Warm the memory cache so the tiles appear with their covers on first render
+    // instead of flashing from empty to artwork.
+    LaunchedEffect(gridSongs) {
+        val loader = context.imageLoader
+        gridSongs.forEach { music ->
+            music.thumb?.let { thumb ->
+                loader.enqueue(
+                    ImageRequest.Builder(context)
+                        .data(thumb)
+                        .memoryCacheKey(thumb.toString())
+                        .build()
+                )
+            }
+        }
+    }
 
     Column(
         Modifier
@@ -220,9 +240,10 @@ private fun RecommendGridItem(
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
                 .data(music.thumb)
-                .crossfade(true)
+                .memoryCacheKey(music.thumb?.toString())
+                // Quick fade from the tile surface; no grey placeholder frame first.
+                .crossfade(150)
                 .error(R.drawable.placeholder_music_default_artwork)
-                .placeholder(R.drawable.placeholder_music_default_artwork)
                 .fallback(R.drawable.placeholder_music_default_artwork)
                 .build(),
             contentDescription = null,
@@ -231,6 +252,7 @@ private fun RecommendGridItem(
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
         )
         Text(
             text = music.title ?: defaultTitle,
