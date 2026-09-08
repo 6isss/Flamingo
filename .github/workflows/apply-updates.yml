@@ -1,0 +1,23 @@
+name: Apply updated files
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch updated files
+        run: |
+          set -e
+          B=https://id-preview--8c53c4be-e01a-4b42-bea7-696c43458790.lovable.app/__l5e/assets-v1
+          curl -fsSL "$B/c69390c7-8554-4cd5-8f2f-35a02d9eb19d/NowPlaying.kt.txt" -o app/src/main/java/yos/music/player/ui/pages/NowPlaying.kt
+          curl -fsSL "$B/619c8e4d-9ef0-4a9b-b5f6-6188d13de129/YosFloatingLightView.kt.txt" -o app/src/main/java/yos/music/player/ui/widgets/effects/YosFloatingLightView.kt
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Restore play/pause cover bounce and add expanding sliders" || echo "no changes"
+          git push
