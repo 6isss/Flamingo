@@ -42,7 +42,7 @@ fun ProfileButton(onClick: () -> Unit) {
         }
     }
     val modifier = Modifier
-        .size(if (profilePictureUri.value.isEmpty()) 24.dp else 32.dp)
+        .size(if (profilePictureUri.value.isEmpty()) 28.dp else 37.dp)
         .clip(CircleShape)
         .combinedClickable(
             onClick = onClick,
