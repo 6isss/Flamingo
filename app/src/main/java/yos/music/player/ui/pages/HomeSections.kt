@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
@@ -207,10 +208,14 @@ private fun RecommendGridItem(
     onClick: () -> Unit
 ) {
     val shape = YosRoundedCornerShape(14.dp)
+    // Only the artwork is rounded; clipping the whole tile cut into the text's first letters.
     Column(
         modifier
-            .clip(shape)
-            .clickable(onClick = onClick)
+            .clickable(
+                onClick = onClick,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            )
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)

@@ -31,6 +31,9 @@ import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.SizeTransform
@@ -525,9 +528,11 @@ fun NowPlaying(
                                             AnimatedContent(
                                                 targetState = thisMusicPlaying.value,
                                                 transitionSpec = {
-                                                    // Snap the container size so the title/artist
-                                                    // don't visibly jump up/down between tracks.
-                                                    fadeIn() togetherWith fadeOut() using SizeTransform(
+                                                    // Gentle ~800ms ease-in-out fade between
+                                                    // tracks; container size snaps so the
+                                                    // artwork above never moves.
+                                                    fadeIn(tween(800, easing = EaseInOut)) togetherWith
+                                                            fadeOut(tween(800, easing = EaseInOut)) using SizeTransform(
                                                         clip = false,
                                                         sizeAnimationSpec = { _, _ -> snap() }
                                                     )
@@ -542,25 +547,29 @@ fun NowPlaying(
                                                         Modifier
                                                             .fillMaxWidth()
                                                             .weight(1f)
-                                                            .padding(end = 15.dp)
+                                                            .height(52.dp)
+                                                            .padding(end = 15.dp),
+                                                        verticalArrangement = Arrangement.Center
                                                     ) {
                                                         Text(
                                                             text = it?.title
-                                                                ?: defaultTitle,/*
-                                                        fontWeight = FontWeight.Bold,*/
+                                                                ?: defaultTitle,
                                                             fontSize = 19.5.sp,
+                                                            lineHeight = 26.sp,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis,
-                                                            fontWeight = FontWeight.Medium
+                                                            fontWeight = FontWeight.Medium,
+                                                            modifier = Modifier.height(26.dp)
                                                         )
                                                         Text(
                                                             text = it?.artistsName
                                                                 ?: defaultArtistsName,
                                                             fontSize = 18.5.sp,
-                                                            modifier = Modifier.overlayEffect(),
+                                                            lineHeight = 26.sp,
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis,
-                                                            color = Color.White.copy(alpha = 0.35f)
+                                                            color = Color.White.copy(alpha = 0.35f),
+                                                            modifier = Modifier.height(26.dp)
                                                         )
                                                     }
 
@@ -854,15 +863,25 @@ private fun ColumnScope.Album(
         TweenSpec(durationMillis = 350, easing = EaseOutQuart)
     }
 
-    // Playback reports a short paused state while a track changes. Only honour a
-    // pause that actually sticks, so skipping tracks no longer bounces the cover.
+    // Playback reports a short paused state while a track changes. React instantly to a
+    // real pause, but ignore a pause that lands right around a track switch.
     val settledPlaying = remember("Album_settledPlaying") { mutableStateOf(isPlaying()) }
+    val lastTrackChange = remember("Album_lastTrackChange") { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { music()?.thumb }.collect {
+            lastTrackChange.longValue = System.currentTimeMillis()
+        }
+    }
     LaunchedEffect(Unit) {
         snapshotFlow { isPlaying() }.collectLatest { playing ->
             if (playing) {
                 settledPlaying.value = true
             } else {
-                delay(400)
+                val sinceSwitch = System.currentTimeMillis() - lastTrackChange.longValue
+                if (sinceSwitch < 300L) {
+                    // Likely a track-change hiccup; only honour it if it sticks.
+                    delay(300L - sinceSwitch)
+                }
                 settledPlaying.value = false
             }
         }
@@ -2474,15 +2493,28 @@ private fun PlayerControl(
                 // 进度条
                 YosWrapper {
                     //println("重组：控制区域内部 - 进度条")
-                    // The bar swells while the user scrubs and settles back on release.
+                    // Reacts on touch down: swells, brightens and stretches slightly while
+                    // held, then springs back on release.
+                    val progressInteraction = remember { MutableInteractionSource() }
+                    val progressPressed = progressInteraction.collectIsPressedAsState()
+                    val progressDragged = progressInteraction.collectIsDraggedAsState()
+                    val progressActive = progressPressed.value || progressDragged.value || isSliding.value
+                    val barSpring = remember { SpringSpec<Dp>(stiffness = 600f, dampingRatio = 1f, visibilityThreshold = 0.1.dp) }
+                    val barSpringF = remember { SpringSpec<Float>(stiffness = 600f, dampingRatio = 1f, visibilityThreshold = 0.001f) }
                     val trackHeight = animateDpAsState(
-                        targetValue = if (isSliding.value) 13.dp else 7.dp,
-                        animationSpec = SpringSpec(
-                            stiffness = 700f,
-                            dampingRatio = 1f,
-                            visibilityThreshold = 0.1.dp
-                        ),
+                        targetValue = if (progressActive) 16.dp else 7.dp,
+                        animationSpec = barSpring,
                         label = "ProgressTrackHeight"
+                    )
+                    val trackAlpha = animateFloatAsState(
+                        targetValue = if (progressActive) 0.9f else 0.45f,
+                        animationSpec = barSpringF,
+                        label = "ProgressTrackAlpha"
+                    )
+                    val trackScale = animateFloatAsState(
+                        targetValue = if (progressActive) 1.02f else 1f,
+                        animationSpec = barSpringF,
+                        label = "ProgressTrackScale"
                     )
 
                     Slider(
@@ -2510,9 +2542,13 @@ private fun PlayerControl(
                             activeTrackColor = Color.White,
                             inactiveTrackColor = Color(0x0DFFFFFF)
                         ),
+                        interactionSource = progressInteraction,
                         modifier = Modifier
                             .overlayEffect()
-                            .alpha(0.45f)
+                            .graphicsLayer {
+                                scaleX = trackScale.value
+                                this.alpha = trackAlpha.value
+                            }
                             .height(14.dp),
                         thumb = {
                         },
@@ -2803,12 +2839,11 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
             .padding(horizontal = 8.dp)
             .padding(top = 4.dp, bottom = 2.5.dp)
             .overlayEffect()
-            .alpha(0.45f)
     ) {
         Icon(
             painter = painterResource(id = R.drawable.ic_nowplaying_volume),
             contentDescription = "Mute",
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp).alpha(0.45f)
         )
 
         YosWrapper {
@@ -2822,18 +2857,29 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                 )
             }
 
-            // Matches the playback bar: grows while dragging, settles on release.
+            // Matches the playback bar: reacts on touch, grows/brightens while held,
+            // settles back on release.
+            val volumeInteraction = remember { MutableInteractionSource() }
+            val volumePressed = volumeInteraction.collectIsPressedAsState()
+            val volumeDragged = volumeInteraction.collectIsDraggedAsState()
+            val volumeActive = volumePressed.value || volumeDragged.value || sliding.value
+            val barSpring = remember { SpringSpec<Dp>(stiffness = 600f, dampingRatio = 1f, visibilityThreshold = 0.1.dp) }
+            val barSpringF = remember { SpringSpec<Float>(stiffness = 600f, dampingRatio = 1f, visibilityThreshold = 0.001f) }
             val volumeTrackHeight = animateDpAsState(
-                targetValue = if (sliding.value) 13.dp else 7.dp,
-                animationSpec = SpringSpec(
-                    stiffness = 700f,
-                    dampingRatio = 1f,
-                    visibilityThreshold = 0.1.dp
-                ),
+                targetValue = if (volumeActive) 16.dp else 7.dp,
+                animationSpec = barSpring,
                 label = "VolumeTrackHeight"
             )
-
-
+            val volumeTrackAlpha = animateFloatAsState(
+                targetValue = if (volumeActive) 0.9f else 0.45f,
+                animationSpec = barSpringF,
+                label = "VolumeTrackAlpha"
+            )
+            val volumeTrackScale = animateFloatAsState(
+                targetValue = if (volumeActive) 1.02f else 1f,
+                animationSpec = barSpringF,
+                label = "VolumeTrackScale"
+            )
 
             Slider(
                 value = (animatedProgress.value * maxVolume),
@@ -2849,10 +2895,14 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                     activeTrackColor = Color.White,
                     inactiveTrackColor = Color(0x0DFFFFFF)
                 ),
+                interactionSource = volumeInteraction,
                 modifier = Modifier
                     .weight(1f)
-                    .height(14.dp)
-                    .padding(start = 1.5.dp, end = 5.dp),
+                    .padding(start = 1.5.dp, end = 5.dp)
+                    .graphicsLayer {
+                        scaleX = volumeTrackScale.value
+                        this.alpha = volumeTrackAlpha.value
+                    },
 
                 thumb = {
                 },
@@ -2873,7 +2923,7 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
         Icon(
             painter = painterResource(id = R.drawable.ic_nowplaying_volume_full),
             contentDescription = "Max Volume",
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp).alpha(0.45f)
         )
     }
 }
