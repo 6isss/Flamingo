@@ -58,6 +58,12 @@ private data class BrowseTile(
     val grainSeed: Int
 )
 
+/** Increments on every visit to Search so the browse palette is re-rolled. */
+private object SearchVisitCounter {
+    private var value = 0
+    fun next(): Int = ++value
+}
+
 @Composable
 fun Search(navController: NavController) {
     val songs = runCatching { MusicLibrary.songs }.getOrDefault(emptyList())
@@ -68,7 +74,9 @@ fun Search(navController: NavController) {
     val keyboard = LocalSoftwareKeyboardController.current
 
     // A fresh set of colours (and grain) every time Search is opened.
-    val tiles = remember(songs) { buildBrowseTiles(songs) }
+    val visitKey = remember { mutableStateOf(SearchVisitCounter.next()) }
+    LaunchedEffect(Unit) { visitKey.value = SearchVisitCounter.next() }
+    val tiles = remember(songs, visitKey.value) { buildBrowseTiles(songs) }
 
     // Debounced fuzzy search across the whole library, ranked by relevance.
     LaunchedEffect(searchText.value, songs) {

@@ -74,6 +74,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -2552,11 +2553,23 @@ private fun PlayerControl(
 
                     LaunchedEffect(Unit) {
                         var lastPosition = 0L
+                        var lastTrackId: String? = null
                         while (true) {
                             //isPlaying.value = /*mediaControl?.isPlaying ?: false*/ FadeExo.targetStatus != 0
                             if (lifecycleState.value.isAtLeast(Lifecycle.State.RESUMED)) {
+                                // On a track change, wipe the fill back to 0:00 before the
+                                // new duration lands, so it can never stretch past the end.
+                                val trackId = mediaControl?.currentMediaItem?.mediaId
+                                if (trackId != lastTrackId) {
+                                    lastTrackId = trackId
+                                    lastPosition = -1L
+                                    sliderPosition.floatValue = 0f
+                                    playingPosition.longValue = 0L
+                                    playedTime.value = formatTime(0)
+                                }
                                 playingDuration.longValue = mediaControl?.duration ?: 0
                                 playingPosition.longValue = mediaControl?.currentPosition ?: 0
+
 
                                 if (!isSliding.value && playingDuration.longValue > 0L) {
                                     val totalSeconds =
@@ -2671,7 +2684,9 @@ private fun PlayerControl(
                         track = {
                             Track(
                                 sliderPositions = SliderPositions(
-                                    initialActiveRange = 0f..(sliderPosition.floatValue / playingDuration.longValue.coerceAtLeast(1L))
+                                    initialActiveRange = 0f..(
+                                        glidingProgress.value / playingDuration.longValue.coerceAtLeast(1L)
+                                    ).coerceIn(0f, 1f)
                                 ),
                                 height = progressSwell.thickness,
                                 overhang = progressSwell.overhang,
@@ -3319,7 +3334,11 @@ private fun ScrollingSongTitle(
                     )
                 }
         ) {
-            Row(modifier = Modifier.graphicsLayer { translationX = offset.value }) {
+            Row(
+                modifier = Modifier
+                    .wrapContentWidth(align = Alignment.Start, unbounded = true)
+                    .graphicsLayer { translationX = offset.value }
+            ) {
                 Text(
                     text = text,
                     fontSize = fontSize,
