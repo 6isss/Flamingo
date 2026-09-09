@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,26 +20,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import yos.music.player.R
 import yos.music.player.data.spotify.SpotifyResult
 
 /**
- * A single Spotify catalogue result: artwork, name and a type/creator line.
+ * A single Spotify catalogue result: artwork, name, a type/creator line and
+ * a button that hands the track over to SpotiFLAC for downloading.
  */
 @Composable
 fun SpotifyResultRow(
     result: SpotifyResult,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDownload: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
@@ -52,7 +59,11 @@ fun SpotifyResultRow(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp)
+        ) {
             Text(
                 text = result.title,
                 fontSize = 16.sp,
@@ -70,5 +81,15 @@ fun SpotifyResultRow(
                 modifier = Modifier.alpha(0.55f)
             )
         }
+
+        Icon(
+            painter = painterResource(id = R.drawable.ic_action_download),
+            contentDescription = stringResource(id = R.string.search_download),
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable(onClick = onDownload)
+                .padding(8.dp)
+                .size(22.dp)
+        )
     }
 }

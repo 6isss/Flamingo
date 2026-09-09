@@ -36,6 +36,7 @@ import yos.music.player.R
 import yos.music.player.code.MediaController
 import yos.music.player.data.libraries.MusicLibrary
 import yos.music.player.data.libraries.YosMediaItem
+import yos.music.player.data.spotify.SpotiFlacLauncher
 import yos.music.player.data.spotify.SpotifyApi
 import yos.music.player.data.spotify.SpotifyResult
 import yos.music.player.ui.UI
@@ -155,14 +156,20 @@ fun Search(navController: NavController) {
                     spotifyResults.value,
                     key = { result: SpotifyResult -> "${result.type}_${result.id}" }
                 ) { result ->
-                    SpotifyResultRow(result = result) {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse(result.externalUrl))
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            )
+                    SpotifyResultRow(
+                        result = result,
+                        onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(result.externalUrl))
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                            }
+                        },
+                        onDownload = {
+                            SpotiFlacLauncher.download(context, result.externalUrl)
                         }
-                    }
+                    )
                 }
             } else {
                 if (searchText.value.isNotBlank() && results.value.isEmpty()) {
