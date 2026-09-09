@@ -46,6 +46,14 @@ android {
 
         renderscriptTargetApi 19
         renderscriptSupportModeEnabled true
+
+        // Spotify catalogue search. Put your credentials in local.properties:
+        //   spotify.clientId=...
+        //   spotify.clientSecret=...
+        buildConfigField "String", "SPOTIFY_CLIENT_ID",
+                "\"${localProperties.getProperty("spotify.clientId", "")}\""
+        buildConfigField "String", "SPOTIFY_CLIENT_SECRET",
+                "\"${localProperties.getProperty("spotify.clientSecret", "")}\"" 
     }
 
     buildTypes {
@@ -83,6 +91,7 @@ android {
 
     buildFeatures {
         compose true
+        buildConfig true
     }
 
     packagingOptions {

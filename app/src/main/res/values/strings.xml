@@ -14,6 +14,11 @@
     <string name="home_recently_played_title">Recently Played</string>
     <string name="page_search_title">Search</string>
     <string name="search_library_placeholder">Songs, Artists, Albums…</string>
+    <string name="search_spotify_placeholder">Search Spotify catalogue…</string>
+    <string name="search_source_library">My library</string>
+    <string name="search_source_spotify">Spotify</string>
+    <string name="search_spotify_loading">Searching Spotify…</string>
+    <string name="search_spotify_unavailable">Spotify search is not set up yet.</string>
     <string name="search_no_results">No Results</string>
     <string name="home_quick_most_played">Most Played</string>
     <string name="home_quick_shuffle">Shuffle</string>
