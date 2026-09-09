@@ -19,6 +19,8 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
@@ -29,6 +31,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.applyCanvas
 import androidx.core.graphics.drawable.toBitmap
 import coil.ImageLoader
@@ -46,7 +49,8 @@ fun YosFloatingLight(
     album: () -> Uri?,
     isPlaying: () -> Boolean,
     nowPage: () -> String,
-    showMiniPlayer: () -> Boolean
+    showMiniPlayer: () -> Boolean,
+    revealProgress: () -> Float
 ) {
     // Two fixed layers: the artwork that is on screen, and the one fading in.
     // Nothing is decoded while the fade runs, so the transition stays smooth.
@@ -113,7 +117,10 @@ fun YosFloatingLight(
                         bitmap = previous,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(14.dp * revealProgress(), BlurredEdgeTreatment.Unbounded)
+                            .graphicsLayer { alpha = 0.72f + (0.28f * revealProgress()) }
                     )
                 }
                 currentImage.value?.let { current ->
@@ -123,7 +130,10 @@ fun YosFloatingLight(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer { this.alpha = fade.value }
+                            .blur(14.dp * revealProgress(), BlurredEdgeTreatment.Unbounded)
+                            .graphicsLayer {
+                                this.alpha = fade.value * (0.72f + (0.28f * revealProgress()))
+                            }
                     )
                 }
             }

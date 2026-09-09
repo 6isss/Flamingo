@@ -102,14 +102,7 @@ val MediaItem.bitrate: Int
 */
 
 fun String.toMultipleArtists(): List<String> {
-    val delimiters = buildList {
-        add("、")
-        SettingsLibrary.ArtistSplitSeparators
-            .lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .forEach { add(it) }
-    }.distinct()
+    val delimiters = listOf(",")
 
     var protectedArtistsText = this
     val protectedArtistMap = mutableMapOf<String, String>()
@@ -133,5 +126,5 @@ fun String.toMultipleArtists(): List<String> {
 }
 
 fun List<String>.toArtistsString(): String {
-    return this.joinToString("、")
+    return this.joinToString(", ")
 }

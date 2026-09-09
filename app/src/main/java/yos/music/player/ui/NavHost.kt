@@ -39,7 +39,6 @@ interface UI {
         companion object {
             const val Main = "Main"
             const val LibraryOverview = "LibraryOverview"
-            const val ArtistSplit = "ArtistSplit"
             const val AnimatedAlbumCoverBlacklist = "AnimatedAlbumCoverBlacklist"
             const val AnimatedAlbumCoversSetting = "AnimatedAlbumCoversSetting"
 

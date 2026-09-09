@@ -103,6 +103,7 @@ fun ShadowImageWithCache(
     cornerRadius: Dp = 8.dp,
     imageQuality: ImageQuality,
     crossfade: Boolean = true,
+    crossfadeDurationMillis: Int = 100,
     overlayContent: (@Composable BoxScope.() -> Unit)? = null
 ) = YosWrapper {
     val shape = YosRoundedCornerShape(cornerRadius)
@@ -126,7 +127,7 @@ fun ShadowImageWithCache(
                 .placeholderMemoryCacheKey(url.toString())
                 .memoryCacheKey(url.toString())
                 .allowHardware(true)
-                .crossfade(crossfade)
+                .crossfade(if (crossfade) crossfadeDurationMillis else 0)
                 .apply {
                     if (imageQuality != ImageQuality.RAW) {
                         val size = getSizeFromQuality(imageQuality)

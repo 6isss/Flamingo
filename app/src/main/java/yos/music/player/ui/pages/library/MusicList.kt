@@ -986,7 +986,7 @@ private fun SongContextArtistsText(
                 append(artistName)
                 pop()
                 if (index < artistNames.lastIndex) {
-                    append("、")
+                    append(", ")
                 }
             }
         }

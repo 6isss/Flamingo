@@ -20,10 +20,6 @@
     <string name="settings_library_refresh_now">メディアライブラリを更新</string>
     <string name="settings_library_refresh_now_desc">すぐにメディアライブラリを更新します。</string>
     <string name="settings_library_overview">メディアライブラリの概要</string>
-    <string name="settings_library_artist_split_title">Artist Separators</string>
-    <string name="settings_library_artist_split_desc">Customize how artist names split into separate artists.</string>
-    <string name="settings_library_artist_split_hint">Use one separator per line. Default: ,</string>
-    <string name="settings_library_artist_split_placeholder">Enter one separator per line</string>
     <string name="settings_library_animated_album_covers">アニメーションアルバムカバー</string>
     <string name="settings_library_animated_album_covers_desc">曲ディレクトリの anim フォルダにあるローカルアルバム MP4 を再生します。API のダウンロードはアプリのキャッシュに保存されます。</string>
     <string name="settings_library_animated_album_covers_use_api">API を使用（インターネットが必要）</string>

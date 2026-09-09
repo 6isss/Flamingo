@@ -162,13 +162,6 @@ object SettingsLibrary {
             .any { it.equals(normalizedAlbumName, ignoreCase = true) }
     }
 
-    @Stable
-    var ArtistSplitSeparators by mutableDataSaverStateOf(
-        dataSaverInterface = SettingsSaver,
-        key = "settings_library_artist_split_separators",
-        initialValue = ","
-    )
-
     /**
      * 歌词字体字重
      */

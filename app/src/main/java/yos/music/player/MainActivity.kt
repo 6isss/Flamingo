@@ -144,7 +144,6 @@ import yos.music.player.ui.pages.settings.Settings
 import yos.music.player.ui.pages.settings.audio.exoPlayer.ExoPlayerSettings
 import yos.music.player.ui.pages.settings.audio.exoPlayer.MediaCodec
 import yos.music.player.ui.pages.settings.extend.statusBarLyric.LyricGetter
-import yos.music.player.ui.pages.settings.library.ArtistSplitSetting
 import yos.music.player.ui.pages.settings.library.LibraryOverview
 import yos.music.player.ui.pages.settings.others.About
 import yos.music.player.ui.pages.settings.performance.LyricSetting
@@ -503,9 +502,6 @@ class MainActivity : BaseActivity() {
                                             }
                                             composable(UI.Settings.LibraryOverview) {
                                                 LibraryOverview(navController)
-                                            }
-                                            composable(UI.Settings.ArtistSplit) {
-                                                ArtistSplitSetting(navController)
                                             }
                                             composable(UI.Settings.LyricGetter) {
                                                 LyricGetter(navController)
@@ -908,7 +904,8 @@ class MainActivity : BaseActivity() {
                                                 },
                                                 nowPageLambda = { nowPageNowPlaying.value },
                                                 showNowPlaying = { showNowPlaying.value },
-                                                showMiniPlayer = { yosBottomSheetConfig.showMenu }
+                                                showMiniPlayer = { yosBottomSheetConfig.showMenu },
+                                                playerRevealProgress = { yosBottomSheetConfig.progress }
                                             ) {
                                                 nowPageNowPlaying.value = it
                                             }

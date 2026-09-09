@@ -28,10 +28,6 @@
     <string name="settings_library_refresh_now">Refresh Media Library</string>
     <string name="settings_library_refresh_now_desc">Refresh the media library immediately.</string>
     <string name="settings_library_overview">Media Library Overview</string>
-    <string name="settings_library_artist_split_title">Artist Separators</string>
-    <string name="settings_library_artist_split_desc">Customize how artist names split into separate artists.</string>
-    <string name="settings_library_artist_split_hint">Use one separator per line. Default: ,</string>
-    <string name="settings_library_artist_split_placeholder">Enter one separator per line</string>
     <string name="settings_library_animated_album_covers">Animated Album Covers</string>
     <string name="settings_library_animated_album_covers_desc">Plays local album MP4s from the song directory’s anim folder. API downloads are stored in the app cache.</string>
     <string name="settings_library_animated_album_covers_use_api">Use API (requires internet)</string>

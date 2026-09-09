@@ -31,6 +31,7 @@ import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.EaseOutQuart
+import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.EaseInOut
@@ -77,6 +78,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.material.ripple
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -137,6 +139,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastMap
@@ -309,6 +312,7 @@ fun NowPlaying(
     nowPageLambda: () -> String,
     showNowPlaying: () -> Boolean,
     showMiniPlayer: () -> Boolean,
+    playerRevealProgress: () -> Float,
     nowPageOnChanged: (String) -> Unit
 ) =
     Surface(
@@ -392,7 +396,8 @@ fun NowPlaying(
                 isPlaying = isPlayingStatusLambda,
                 modifier = Modifier.fillMaxSize(),
                 nowPage = { nowPageLambda() },
-                showMiniPlayer = showMiniPlayer
+                showMiniPlayer = showMiniPlayer,
+                revealProgress = playerRevealProgress
             )
         }
 
@@ -534,11 +539,11 @@ fun NowPlaying(
                                             AnimatedContent(
                                                 targetState = thisMusicPlaying.value,
                                                 transitionSpec = {
-                                                    // Gentle ~800ms ease-in-out fade between
+                                                    // 500 ms sequential fade-through between
                                                     // tracks; container size snaps so the
                                                     // artwork above never moves.
-                                                    fadeIn(tween(300, delayMillis = 300, easing = EaseInOut)) togetherWith
-                                                            fadeOut(tween(300, easing = EaseInOut)) using SizeTransform(
+                                                    fadeIn(tween(250, delayMillis = 250, easing = EaseInOut)) togetherWith
+                                                            fadeOut(tween(250, easing = EaseInOut)) using SizeTransform(
                                                         clip = false,
                                                         sizeAnimationSpec = { _, _ -> snap() }
                                                     )
@@ -557,13 +562,11 @@ fun NowPlaying(
                                                             .padding(end = 15.dp),
                                                         verticalArrangement = Arrangement.Center
                                                     ) {
-                                                        Text(
+                                                        ScrollingSongTitle(
                                                             text = it?.title
                                                                 ?: defaultTitle,
                                                             fontSize = 19.5.sp,
                                                             lineHeight = 26.sp,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
                                                             fontWeight = FontWeight.Medium,
                                                             modifier = Modifier.height(26.dp)
                                                         )
@@ -891,7 +894,7 @@ private fun ColumnScope.Album(
         SpringSpec(stiffness = 300f, dampingRatio = 1f, visibilityThreshold = 0.001f)
     }
     val tweenSpec: AnimationSpec<Float> = remember("Album_tweenSpec") {
-        TweenSpec(durationMillis = 350, easing = EaseOutQuart)
+        TweenSpec(durationMillis = 350, easing = EaseOutCubic)
     }
     val scale = animateFloatAsState(
         targetValue = if (settledPlaying.value) 0f else 1f,
@@ -911,7 +914,7 @@ private fun ColumnScope.Album(
                 .padding(start = dp, end = dp, bottom = dp)
                 .then(modifier),
             imageQuality = ImageQuality.RAW,
-            cornerRadius = 4.dp,
+            cornerRadius = 6.dp,
             crossfade = false,
             shadowOverlay = true,
             overlayContent = {
@@ -2143,7 +2146,7 @@ private fun NowPlayingOverflowHeader(
                             append(artistName)
                             pop()
                             if (index < targetArtistNames.lastIndex) {
-                                append("、")
+                                append(", ")
                             }
                         }
                     }
@@ -2236,6 +2239,7 @@ private fun PlayingBar(
                         onAlbumClick()
                     }), cornerRadius = 5.dp,
             imageQuality = ImageQuality.LOW,
+            crossfadeDurationMillis = 150,
             shadowType = ShadowType.Small,
             shadowOverlay = true
         )
@@ -2245,12 +2249,10 @@ private fun PlayingBar(
                 .weight(1f)
                 .padding(start = 12.dp, end = 15.dp)
         ) {
-            Text(
+            ScrollingSongTitle(
                 text = musicPlayingLambda()?.title ?: defaultTitle,/*
                 fontWeight = FontWeight.Bold,*/
                 fontSize = 16.5.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 16.5.sp
             )
@@ -2545,18 +2547,17 @@ private fun PlayerControl(
                                     progressTouched.value = false
                                 }
                             }
-                            .graphicsLayer {
-                                scaleX = progressSwell.widthScale
-                                this.alpha = progressSwell.alpha
-                            }
-                            .height(14.dp),
+                            .height(ControlTouchHeight),
                         thumb = {
                         },
                         track = {
                             Track(
                                 sliderPositions = SliderPositions(
                                     initialActiveRange = 0f..(sliderPosition.floatValue / playingDuration.longValue.coerceAtLeast(1L))
-                                ), height = 7.dp, strokeHeight = progressSwell.thickness
+                                ),
+                                height = progressSwell.thickness,
+                                widthScale = progressSwell.widthScale,
+                                alpha = progressSwell.alpha
                             )
 
                         }
@@ -2644,7 +2645,7 @@ private fun PlayerControl(
 
                             Box(
                                 modifier = Modifier
-                                    .size(58.5.dp)
+                                    .size(62.dp)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = ripple(bounded = false),
@@ -2668,7 +2669,7 @@ private fun PlayerControl(
                                             contentDescription = "Pause",
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .padding(10.dp)
+                                                .padding(9.dp)
                                         )
                                     } else {
                                         Icon(
@@ -2676,7 +2677,7 @@ private fun PlayerControl(
                                             contentDescription = "Play",
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .padding(9.dp)
+                                                .padding(5.dp)
                                         )
                                     }
                                 }
@@ -2898,6 +2899,7 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 1.5.dp, end = 5.dp)
+                    .height(ControlTouchHeight)
                     .pointerInput(Unit) {
                         awaitEachGesture {
                             awaitFirstDown(requireUnconsumed = false)
@@ -2906,10 +2908,7 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                             volumeTouched.value = false
                         }
                     }
-                    .graphicsLayer {
-                        scaleX = volumeSwell.widthScale
-                        this.alpha = volumeSwell.alpha
-                    },
+                    ,
 
                 thumb = {
                 },
@@ -2917,7 +2916,10 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                     Track(
                         sliderPositions = SliderPositions(
                             initialActiveRange = 0f..animatedProgress.value
-                        ), height = 7.dp, strokeHeight = volumeSwell.thickness
+                        ),
+                        height = volumeSwell.thickness,
+                        widthScale = volumeSwell.widthScale,
+                        alpha = volumeSwell.alpha
                     )
                 },
 
@@ -2949,6 +2951,8 @@ private data class ControlSwell(
     val labelAlpha: Float,
     val iconAlpha: Float
 )
+
+private val ControlTouchHeight = 32.dp
 
 /**
  * Apple Music style swell measured from the reference recording: on touch the bar
@@ -2998,7 +3002,8 @@ private fun Track(
     sliderPositions: SliderPositions,
     modifier: Modifier = Modifier,
     height: Dp,
-    strokeHeight: Dp = height
+    widthScale: Float,
+    alpha: Float
 ) = YosWrapper {
     val inactiveTrackColor = Color.White.copy(alpha = 0.5f)
     val activeTrackColor = Color.White
@@ -3008,6 +3013,11 @@ private fun Track(
         modifier
             .fillMaxWidth()
             .height(height)
+            .graphicsLayer {
+                scaleX = widthScale
+                this.alpha = alpha
+                clip = false
+            }
     ) {
         val isRtl = layoutDirection == LayoutDirection.Rtl
         val sliderLeft = Offset(0f, center.y)
@@ -3015,7 +3025,7 @@ private fun Track(
         val sliderStart = if (isRtl) sliderRight else sliderLeft
         val sliderEnd = if (isRtl) sliderLeft else sliderRight
         val tickSize = 2.0.dp.toPx()
-        val trackStrokeWidth = strokeHeight.toPx()
+        val trackStrokeWidth = height.toPx()
         drawLine(
             inactiveTrackColor,
             sliderStart,
@@ -3057,6 +3067,32 @@ private fun Track(
             )
         }
     }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ScrollingSongTitle(
+    text: String,
+    fontSize: TextUnit,
+    lineHeight: TextUnit,
+    fontWeight: FontWeight,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = text,
+        fontSize = fontSize,
+        lineHeight = lineHeight,
+        maxLines = 1,
+        overflow = TextOverflow.Clip,
+        fontWeight = fontWeight,
+        modifier = modifier.basicMarquee(
+            iterations = Int.MAX_VALUE,
+            animationMode = androidx.compose.foundation.MarqueeAnimationMode.Immediately,
+            repeatDelayMillis = 1200,
+            initialDelayMillis = 1200,
+            velocity = 30.dp
+        )
+    )
 }
 
 fun formatTime(seconds: Long): String {

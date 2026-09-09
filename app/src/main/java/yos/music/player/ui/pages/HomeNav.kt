@@ -53,10 +53,10 @@ fun HomeNav(
         modifier = Modifier.fillMaxSize(),
         transitionSpec = {
             (
-                fadeIn(tween(280, easing = EaseInOut)) +
-                    scaleIn(initialScale = 0.975f, animationSpec = tween(300, easing = EaseInOut))
+                fadeIn(tween(240, easing = EaseInOut)) +
+                    scaleIn(initialScale = 0.975f, animationSpec = tween(250, easing = EaseInOut))
                 ) togetherWith
-                fadeOut(tween(240, easing = EaseInOut)) using
+                fadeOut(tween(200, easing = EaseInOut)) using
                 SizeTransform(clip = false)
         },
         label = "HomeTabTransition"

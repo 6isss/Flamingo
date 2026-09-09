@@ -141,7 +141,7 @@ class ListenStatsTracker(private val player: Player)
                 ListenStatsEvent(
                     uri = mediaItem.uri?.toString(),
                     title = mediaItem.title,
-                    artists = mediaItem.artists?.joinToString("、"),
+                    artists = mediaItem.artists?.joinToString(", "),
                     album = mediaItem.album,
                     albumArtists = mediaItem.albumArtists,
                     thumb = mediaItem.thumb?.toString(),
