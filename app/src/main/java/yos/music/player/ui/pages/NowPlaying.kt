@@ -79,6 +79,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material.ripple
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -119,6 +120,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -126,14 +128,19 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -221,6 +228,7 @@ import yos.music.player.ui.widgets.effects.ShadowType
 import yos.music.player.ui.widgets.effects.overlayEffect
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import kotlin.math.abs
 
 
 @Stable
@@ -568,7 +576,9 @@ fun NowPlaying(
                                                             fontSize = 19.5.sp,
                                                             lineHeight = 26.sp,
                                                             fontWeight = FontWeight.Medium,
-                                                            modifier = Modifier.height(26.dp)
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(26.dp)
                                                         )
                                                         Text(
                                                             text = it?.artistsName
@@ -2250,11 +2260,11 @@ private fun PlayingBar(
                 .padding(start = 12.dp, end = 15.dp)
         ) {
             ScrollingSongTitle(
-                text = musicPlayingLambda()?.title ?: defaultTitle,/*
-                fontWeight = FontWeight.Bold,*/
+                text = musicPlayingLambda()?.title ?: defaultTitle,
                 fontSize = 16.5.sp,
                 fontWeight = FontWeight.Medium,
-                lineHeight = 16.5.sp
+                lineHeight = 16.5.sp,
+                modifier = Modifier.fillMaxWidth()
             )
             Text(
                 text = musicPlayingLambda()?.artistsName
@@ -2454,6 +2464,8 @@ private fun PlayerControl(
         mutableStateOf(false)
     }
     val progressTouched = remember("PlayerControl_progressTouched") { mutableStateOf(false) }
+    // Only a real horizontal drag may move playback; a plain tap must not seek.
+    val progressDragging = remember("PlayerControl_progressDragging") { mutableStateOf(false) }
     val progressInteraction = remember { MutableInteractionSource() }
     val progressPressed = progressInteraction.collectIsPressedAsState()
     val progressDragged = progressInteraction.collectIsDraggedAsState()
@@ -2514,6 +2526,7 @@ private fun PlayerControl(
                     Slider(
                         value = sliderPosition.floatValue,
                         onValueChange = { newValue ->
+                            if (!progressDragging.value) return@Slider
                             isSliding.value = true
 
                             sliderPosition.floatValue = newValue
@@ -2527,8 +2540,14 @@ private fun PlayerControl(
                             onSlider()
                         },
                         onValueChangeFinished = {
-                            Vibrator.longClick(context)
-                            onSeek(sliderPosition.floatValue)
+                            if (isSliding.value) {
+                                Vibrator.longClick(context)
+                                onSeek(sliderPosition.floatValue)
+                            } else {
+                                // Tapped without dragging: keep the current position.
+                                sliderPosition.floatValue =
+                                    playingPosition.longValue.coerceAtLeast(0).toFloat()
+                            }
                             isSliding.value = false
                         },
                         valueRange = 0f..playingDuration.longValue.toFloat().coerceAtLeast(0f),
@@ -2540,11 +2559,26 @@ private fun PlayerControl(
                         modifier = Modifier
                             .overlayEffect()
                             .pointerInput(Unit) {
+                                val slop = viewConfiguration.touchSlop
                                 awaitEachGesture {
-                                    awaitFirstDown(requireUnconsumed = false)
+                                    val down = awaitFirstDown(
+                                        requireUnconsumed = false,
+                                        pass = PointerEventPass.Initial
+                                    )
                                     progressTouched.value = true
-                                    waitForUpOrCancellation()
+                                    progressDragging.value = false
+                                    val startX = down.position.x
+                                    while (true) {
+                                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                                        val change =
+                                            event.changes.firstOrNull { it.id == down.id } ?: break
+                                        if (!change.pressed) break
+                                        if (abs(change.position.x - startX) > slop) {
+                                            progressDragging.value = true
+                                        }
+                                    }
                                     progressTouched.value = false
+                                    progressDragging.value = false
                                 }
                             }
                             .height(ControlTouchHeight),
@@ -2556,8 +2590,9 @@ private fun PlayerControl(
                                     initialActiveRange = 0f..(sliderPosition.floatValue / playingDuration.longValue.coerceAtLeast(1L))
                                 ),
                                 height = progressSwell.thickness,
-                                widthScale = progressSwell.widthScale,
-                                alpha = progressSwell.alpha
+                                overhang = progressSwell.overhang,
+                                activeAlpha = progressSwell.activeAlpha,
+                                inactiveAlpha = progressSwell.inactiveAlpha
                             )
 
                         }
@@ -2588,6 +2623,9 @@ private fun PlayerControl(
                                     .overlayEffect()
                                     .graphicsLayer {
                                         translationX = -progressSwell.labelOffset.toPx()
+                                        transformOrigin = TransformOrigin(0f, 0.5f)
+                                        scaleX = progressSwell.labelScale
+                                        scaleY = progressSwell.labelScale
                                         this.alpha = progressSwell.labelAlpha
                                     }
                             )
@@ -2601,6 +2639,9 @@ private fun PlayerControl(
                                     .overlayEffect()
                                     .graphicsLayer {
                                         translationX = progressSwell.labelOffset.toPx()
+                                        transformOrigin = TransformOrigin(1f, 0.5f)
+                                        scaleX = progressSwell.labelScale
+                                        scaleY = progressSwell.labelScale
                                         this.alpha = progressSwell.labelAlpha
                                     }
                             )
@@ -2864,6 +2905,8 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                 .size(20.dp)
                 .graphicsLayer {
                     translationX = -volumeSwell.labelOffset.toPx()
+                    scaleX = volumeSwell.iconScale
+                    scaleY = volumeSwell.iconScale
                     this.alpha = volumeSwell.iconAlpha
                 }
         )
@@ -2918,8 +2961,9 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                             initialActiveRange = 0f..animatedProgress.value
                         ),
                         height = volumeSwell.thickness,
-                        widthScale = volumeSwell.widthScale,
-                        alpha = volumeSwell.alpha
+                        overhang = volumeSwell.overhang,
+                        activeAlpha = volumeSwell.activeAlpha,
+                        inactiveAlpha = volumeSwell.inactiveAlpha
                     )
                 },
 
@@ -2945,39 +2989,47 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
 @Stable
 private data class ControlSwell(
     val thickness: Dp,
-    val widthScale: Float,
-    val alpha: Float,
+    val overhang: Dp,
+    val activeAlpha: Float,
+    val inactiveAlpha: Float,
     val labelOffset: Dp,
     val labelAlpha: Float,
-    val iconAlpha: Float
+    val labelScale: Float,
+    val iconAlpha: Float,
+    val iconScale: Float
 )
 
 private val ControlTouchHeight = 32.dp
 
 /**
- * Apple Music style swell measured from the reference recording: on touch the bar
- * grows to ~3x thickness and ~5% wider, brightens, and the labels/icons brighten and
- * are pushed slightly outward with the bar ends. A critically damped spring gives the
- * fast start / soft settle (~250 ms) in both directions.
+ * Apple Music style swell: on touch the bar grows in thickness, extends slightly past
+ * both ends and brightens, while the time labels / volume icons brighten, scale up and
+ * drift outward with the bar ends. At rest everything returns to its original opacity.
+ * A critically damped spring gives the fast start / soft settle (~250 ms) both ways.
  */
 @Composable
 private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
     val floatSpec = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 700f)
     val dpSpec = spring<Dp>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 700f)
     val thickness by animateDpAsState(
-        targetValue = if (active) 22.dp else 7.dp,
+        targetValue = if (active) 20.dp else 7.dp,
         animationSpec = dpSpec,
         label = "${label}Thickness"
     )
-    val widthScale by animateFloatAsState(
-        targetValue = if (active) 1.05f else 1f,
-        animationSpec = floatSpec,
-        label = "${label}Width"
+    val overhang by animateDpAsState(
+        targetValue = if (active) 6.dp else 0.dp,
+        animationSpec = dpSpec,
+        label = "${label}Overhang"
     )
-    val alpha by animateFloatAsState(
-        targetValue = if (active) 0.9f else 0.6f,
+    val activeAlpha by animateFloatAsState(
+        targetValue = if (active) 1f else 0.85f,
         animationSpec = floatSpec,
-        label = "${label}Alpha"
+        label = "${label}ActiveAlpha"
+    )
+    val inactiveAlpha by animateFloatAsState(
+        targetValue = if (active) 0.35f else 0.18f,
+        animationSpec = floatSpec,
+        label = "${label}InactiveAlpha"
     )
     val labelOffset by animateDpAsState(
         targetValue = if (active) 6.dp else 0.dp,
@@ -2985,16 +3037,29 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
         label = "${label}LabelOffset"
     )
     val labelAlpha by animateFloatAsState(
-        targetValue = if (active) 0.6f else 0.3f,
+        targetValue = if (active) 0.75f else 0.35f,
         animationSpec = floatSpec,
         label = "${label}LabelAlpha"
     )
+    val labelScale by animateFloatAsState(
+        targetValue = if (active) 1.12f else 1f,
+        animationSpec = floatSpec,
+        label = "${label}LabelScale"
+    )
     val iconAlpha by animateFloatAsState(
-        targetValue = if (active) 0.8f else 0.45f,
+        targetValue = if (active) 0.85f else 0.45f,
         animationSpec = floatSpec,
         label = "${label}IconAlpha"
     )
-    return ControlSwell(thickness, widthScale, alpha, labelOffset, labelAlpha, iconAlpha)
+    val iconScale by animateFloatAsState(
+        targetValue = if (active) 1.12f else 1f,
+        animationSpec = floatSpec,
+        label = "${label}IconScale"
+    )
+    return ControlSwell(
+        thickness, overhang, activeAlpha, inactiveAlpha,
+        labelOffset, labelAlpha, labelScale, iconAlpha, iconScale
+    )
 }
 
 @Composable
@@ -3002,32 +3067,28 @@ private fun Track(
     sliderPositions: SliderPositions,
     modifier: Modifier = Modifier,
     height: Dp,
-    widthScale: Float,
-    alpha: Float
+    overhang: Dp,
+    activeAlpha: Float,
+    inactiveAlpha: Float
 ) = YosWrapper {
-    val inactiveTrackColor = Color.White.copy(alpha = 0.5f)
-    val activeTrackColor = Color.White
-    val inactiveTickColor = Color.White.copy(alpha = 0.5f)
-    val activeTickColor = Color.White
+    // No graphicsLayer here on purpose: an alpha layer would composite offscreen and
+    // crop the swollen bar at its resting bounds. Alpha lives in the colours instead,
+    // and the extra width is drawn past the bounds so nothing is clipped.
     Canvas(
         modifier
             .fillMaxWidth()
             .height(height)
-            .graphicsLayer {
-                scaleX = widthScale
-                this.alpha = alpha
-                clip = false
-            }
     ) {
         val isRtl = layoutDirection == LayoutDirection.Rtl
-        val sliderLeft = Offset(0f, center.y)
-        val sliderRight = Offset(size.width, center.y)
+        val grow = overhang.toPx()
+        val sliderLeft = Offset(-grow, center.y)
+        val sliderRight = Offset(size.width + grow, center.y)
         val sliderStart = if (isRtl) sliderRight else sliderLeft
         val sliderEnd = if (isRtl) sliderLeft else sliderRight
         val tickSize = 2.0.dp.toPx()
         val trackStrokeWidth = height.toPx()
         drawLine(
-            inactiveTrackColor,
+            Color.White.copy(alpha = inactiveAlpha),
             sliderStart,
             sliderEnd,
             trackStrokeWidth,
@@ -3046,7 +3107,7 @@ private fun Track(
         )
 
         drawLine(
-            activeTrackColor,
+            Color.White.copy(alpha = activeAlpha),
             sliderValueStart,
             sliderValueEnd,
             trackStrokeWidth,
@@ -3061,7 +3122,7 @@ private fun Track(
                     Offset(lerp(sliderStart, sliderEnd, it).x, center.y)
                 },
                 PointMode.Points,
-                (if (outsideFraction) inactiveTickColor else activeTickColor),
+                Color.White.copy(alpha = if (outsideFraction) inactiveAlpha else activeAlpha),
                 tickSize,
                 StrokeCap.Round
             )
@@ -3078,21 +3139,56 @@ private fun ScrollingSongTitle(
     fontWeight: FontWeight,
     modifier: Modifier = Modifier
 ) {
-    Text(
-        text = text,
+    val measurer = rememberTextMeasurer()
+    val style = TextStyle(
         fontSize = fontSize,
         lineHeight = lineHeight,
-        maxLines = 1,
-        overflow = TextOverflow.Clip,
-        fontWeight = fontWeight,
-        modifier = modifier.basicMarquee(
-            iterations = Int.MAX_VALUE,
-            animationMode = androidx.compose.foundation.MarqueeAnimationMode.Immediately,
-            repeatDelayMillis = 1200,
-            initialDelayMillis = 1200,
-            velocity = 30.dp
-        )
+        fontWeight = fontWeight
     )
+    BoxWithConstraints(modifier = modifier) {
+        val available = constraints.maxWidth
+        val textWidth = remember(text, available, fontSize, fontWeight) {
+            measurer.measure(
+                text = AnnotatedString(text),
+                style = style,
+                maxLines = 1,
+                softWrap = false
+            ).size.width
+        }
+        val scrolls = available > 0 && textWidth > available
+        Text(
+            text = text,
+            fontSize = fontSize,
+            lineHeight = lineHeight,
+            maxLines = 1,
+            overflow = if (scrolls) TextOverflow.Clip else TextOverflow.Ellipsis,
+            fontWeight = fontWeight,
+            softWrap = false,
+            modifier = if (!scrolls) Modifier else Modifier
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    val fade = 20.dp.toPx().coerceAtMost(size.width / 4f)
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            0f to Color.Transparent,
+                            (fade / size.width) to Color.Black,
+                            (1f - fade / size.width) to Color.Black,
+                            1f to Color.Transparent
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                }
+                .basicMarquee(
+                    iterations = Int.MAX_VALUE,
+                    animationMode = androidx.compose.foundation.MarqueeAnimationMode.Immediately,
+                    repeatDelayMillis = 1400,
+                    initialDelayMillis = 1400,
+                    spacing = androidx.compose.foundation.MarqueeSpacing(42.dp),
+                    velocity = 30.dp
+                )
+        )
+    }
 }
 
 fun formatTime(seconds: Long): String {
