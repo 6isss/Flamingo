@@ -30,7 +30,8 @@ object SpotifyAuth {
 
     private const val AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
     private const val TOKEN_URL = "https://accounts.spotify.com/api/token"
-    private const val SCOPES = "user-read-email user-read-private"
+    private const val SCOPES =
+        "user-read-private user-read-email playlist-read-private user-library-read"
 
     private const val PREFS = "spotify_auth"
     private const val KEY_ACCESS = "access_token"
@@ -120,6 +121,11 @@ object SpotifyAuth {
         ) ?: return null
         store(json)
         return prefs.getString(KEY_ACCESS, null)
+    }
+
+    /** Drops the cached access token so the next read refreshes it. */
+    fun invalidateAccessToken() {
+        prefs()?.edit()?.remove(KEY_ACCESS)?.putLong(KEY_EXPIRES, 0L)?.apply()
     }
 
     private fun store(json: JSONObject) {

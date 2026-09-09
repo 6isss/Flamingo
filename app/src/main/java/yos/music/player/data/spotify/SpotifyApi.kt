@@ -1,6 +1,7 @@
 package yos.music.player.data.spotify
 
 import android.util.Base64
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -47,11 +48,17 @@ object SpotifyApi {
         get() = BuildConfig.SPOTIFY_CLIENT_ID.isNotBlank() &&
                 BuildConfig.SPOTIFY_CLIENT_SECRET.isNotBlank()
 
-    private fun accessToken(): String? {
-        SpotifyAuth.accessToken()?.let { return it }
+    /** The bearer token plus whether it belongs to a signed-in user. */
+    private fun accessToken(forceRefresh: Boolean = false): Pair<String, Boolean>? {
+        if (forceRefresh) SpotifyAuth.invalidateAccessToken()
+        SpotifyAuth.accessToken()?.let { return it to true }
 
+        if (forceRefresh) {
+            token = null
+            tokenExpiresAt = 0L
+        }
         val cached = token
-        if (cached != null && System.currentTimeMillis() < tokenExpiresAt) return cached
+        if (cached != null && System.currentTimeMillis() < tokenExpiresAt) return cached to false
         if (!hasClientCredentials) return null
 
         val credentials = Base64.encodeToString(
@@ -79,35 +86,53 @@ object SpotifyApi {
                 token = value
                 tokenExpiresAt = System.currentTimeMillis() + (expiresIn - 60L) * 1000L
             }
-            value
+            value?.let { it to false }
         }.getOrNull()
     }
 
     suspend fun search(query: String, limit: Int = 20): List<SpotifyResult> =
         withContext(Dispatchers.IO) {
             if (query.isBlank()) return@withContext emptyList()
-            val bearer = accessToken() ?: return@withContext emptyList()
+            requestSearch(query, limit, forceRefresh = false)
+                ?: requestSearch(query, limit, forceRefresh = true)
+                ?: emptyList()
+        }
 
-            val url = "$SEARCH_URL?q=${URLEncoder.encode(query, "UTF-8")}" +
-                    "&type=track,album,playlist&limit=$limit"
+    /** Returns null when the token was rejected, so the caller can retry once. */
+    private fun requestSearch(query: String, limit: Int, forceRefresh: Boolean): List<SpotifyResult>? {
+        val (bearer, isUserToken) = accessToken(forceRefresh) ?: return emptyList()
+        val market = if (isUserToken) "from_token" else "US"
+        val url = "$SEARCH_URL?q=${URLEncoder.encode(query, "UTF-8")}" +
+                "&type=track,album,playlist&limit=$limit&market=$market"
 
-            runCatching {
-                val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    connectTimeout = 10_000
-                    readTimeout = 10_000
-                    setRequestProperty("Authorization", "Bearer $bearer")
-                }
-                if (connection.responseCode == 401) {
-                    // Token rejected: drop it so the next attempt fetches a fresh one.
+        return runCatching {
+            val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 10_000
+                readTimeout = 10_000
+                setRequestProperty("Accept", "application/json")
+                setRequestProperty("Authorization", "Bearer $bearer")
+            }
+            val code = connection.responseCode
+            if (code !in 200..299) {
+                val error = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                connection.disconnect()
+                Log.w("SpotifyApi", "Search failed with HTTP $code: $error")
+                if (code == 401 || code == 403) {
                     token = null
                     tokenExpiresAt = 0L
+                    return if (forceRefresh) emptyList() else null
                 }
-                val body = connection.inputStream.bufferedReader().use { it.readText() }
-                connection.disconnect()
-                parse(JSONObject(body))
-            }.getOrDefault(emptyList())
+                return emptyList()
+            }
+            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            connection.disconnect()
+            parse(JSONObject(body))
+        }.getOrElse {
+            Log.w("SpotifyApi", "Search failed", it)
+            emptyList()
         }
+    }
 
     private fun parse(root: JSONObject): List<SpotifyResult> {
         val results = mutableListOf<SpotifyResult>()

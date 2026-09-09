@@ -73,6 +73,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -334,6 +336,12 @@ class MainActivity : BaseActivity() {
                             Surface(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    // The page behind the player blurs progressively as
+                                    // the player is pulled up.
+                                    .blur(
+                                        20.dp * yosBottomSheetConfig.progress,
+                                        BlurredEdgeTreatment.Unbounded
+                                    )
                                     .graphicsLayer {
                                         val thisMainContainerCardScale =
                                             yosBottomSheetConfig.mainContainerCardScale

@@ -28,11 +28,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.random.Random
 import androidx.navigation.NavController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -47,6 +49,7 @@ import yos.music.player.ui.widgets.basic.ImageQuality
 import yos.music.player.ui.widgets.basic.ShadowImage
 import yos.music.player.data.spotify.SpotiFlacLauncher
 import yos.music.player.data.spotify.SpotifyApi
+import yos.music.player.data.spotify.SpotifyAuth
 import yos.music.player.data.spotify.SpotifyResult
 import yos.music.player.ui.UI
 import yos.music.player.ui.pages.library.MusicList
@@ -71,6 +74,17 @@ fun Search(navController: NavController) {
     val spotifyResults = remember { mutableStateOf(emptyList<SpotifyResult>()) }
     val spotifyLoading = remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val keyboard = LocalSoftwareKeyboardController.current
+    // A fresh palette order every time the Search tab is entered.
+    val palette = remember {
+        val random = Random(System.nanoTime())
+        listOf(6f, 28f, 48f, 96f, 152f, 188f, 214f, 252f, 288f, 322f).shuffled(random)
+    }
+
+    // Signing in makes Spotify the active source straight away.
+    LaunchedEffect(SpotifyAuth.signedIn.value) {
+        if (SpotifyAuth.signedIn.value) onlineMode.value = true
+    }
 
     // Debounced fuzzy search across the whole library, ranked by
     // relevance (same engine as the in-playlist search).
@@ -168,6 +182,7 @@ fun Search(navController: NavController) {
                     SpotifyResultRow(
                         result = result,
                         onClick = {
+                            keyboard?.hide()
                             runCatching {
                                 context.startActivity(
                                     Intent(Intent.ACTION_VIEW, Uri.parse(result.externalUrl))
@@ -196,10 +211,15 @@ fun Search(navController: NavController) {
                     ) {
                         row.forEachIndexed { index, album ->
                             if (index > 0) Spacer(modifier = Modifier.width(14.dp))
+                            val hue = palette[
+                                (browseAlbums.indexOf(album)).coerceAtLeast(0) % palette.size
+                            ]
                             BrowseCard(
                                 albumName = album,
+                                hue = hue,
                                 modifier = Modifier.weight(1f)
                             ) {
+                                keyboard?.hide()
                                 LibraryObject.setTargetAlbumName(album)
                                 navController.toUI(UI.AlbumInfo)
                             }
@@ -227,6 +247,7 @@ fun Search(navController: NavController) {
                         music = music,
                         navController = navController,
                         itemClick = {
+                            keyboard?.hide()
                             scope.launch(Dispatchers.IO) {
                                 MediaController.prepare(music, results.value)
                             }
@@ -239,30 +260,30 @@ fun Search(navController: NavController) {
 }
 
 /**
- * Full-bleed album card for the empty search state: square artwork under a
- * saturated gradient wash whose hue is derived from the album name, so it stays
- * the same between visits.
+ * Full-bleed album card for the empty search state: artwork under a dramatic
+ * monochromatic wash. The hue comes from a palette that is reshuffled every
+ * time the Search tab is opened.
  */
 @Composable
 private fun BrowseCard(
     albumName: String,
+    hue: Float,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     val songs = runCatching { MusicLibrary.Album[albumName] }.getOrDefault(emptyList())
     val shape = RoundedCornerShape(18.dp)
-    val gradient = remember(albumName) {
-        val hue = (albumName.hashCode().toLong() and 0xFFFFFF) % 360L
+    val gradient = remember(hue) {
         Brush.linearGradient(
             listOf(
-                Color.hsl(hue.toFloat(), 0.85f, 0.55f).copy(alpha = 0.55f),
-                Color.hsl(((hue + 55) % 360).toFloat(), 0.9f, 0.35f).copy(alpha = 0.75f)
+                Color.hsl(hue, 0.95f, 0.58f).copy(alpha = 0.62f),
+                Color.hsl(hue, 1f, 0.18f).copy(alpha = 0.92f)
             )
         )
     }
     Box(
         modifier = modifier
-            .aspectRatio(1f)
+            .aspectRatio(1.35f)
             .clip(shape)
             .clickable(onClick = onClick)
     ) {
@@ -283,15 +304,6 @@ private fun BrowseCard(
             modifier = Modifier
                 .matchParentSize()
                 .border(1.dp, Color.White.copy(alpha = 0.14f), shape)
-        )
-        Text(
-            text = albumName,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(14.dp)
         )
     }
 }

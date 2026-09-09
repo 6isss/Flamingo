@@ -45,7 +45,10 @@ fun ProfileButton(onClick: () -> Unit) {
         .size(if (profilePictureUri.value.isEmpty()) 28.dp else 37.dp)
         .clip(CircleShape)
         .combinedClickable(
-            onClick = onClick,
+            onClick = {
+                Vibrator.click(context)
+                onClick()
+            },
             onLongClick = {
                 Vibrator.longClick(context)
                 imagePicker.launch(

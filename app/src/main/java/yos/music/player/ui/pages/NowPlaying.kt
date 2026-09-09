@@ -18,6 +18,7 @@ import android.os.Build
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -820,7 +821,14 @@ fun NowPlaying(
                                         isPlayingLambda = isPlayingStatusLambda,
                                         isPlayingOnChanged = isPlayingOnChanged,
                                         onPrevious = {
-                                            mediaControl?.seekToPreviousMediaItem()
+                                            // Past the first five seconds, "previous" restarts
+                                            // the current track instead of skipping back.
+                                            val position = mediaControl?.currentPosition ?: 0L
+                                            if (position > 5000L) {
+                                                mediaControl?.seekTo(0L)
+                                            } else {
+                                                mediaControl?.seekToPreviousMediaItem()
+                                            }
                                             showControl.value = true
                                             lastClickTime.longValue = TimeUtils.getNowMills()
                                         },
@@ -885,6 +893,9 @@ fun NowPlaying(
         }
     }
 
+/** True while the playback scrubber is being held, so the artwork can recede. */
+private val scrubbingArtwork = mutableStateOf(false)
+
 @Composable
 private fun ColumnScope.Album(
     modifier: Modifier,
@@ -931,9 +942,16 @@ private fun ColumnScope.Album(
     val tweenSpec: AnimationSpec<Float> = remember("Album_tweenSpec") {
         TweenSpec(durationMillis = 350, easing = EaseOutCubic)
     }
+    // While scrubbing the cover recedes part of the way, and glides back on release.
+    val scrubbing = scrubbingArtwork.value
+    val target = when {
+        !settledPlaying.value -> 1f
+        scrubbing -> 0.45f
+        else -> 0f
+    }
     val scale = animateFloatAsState(
-        targetValue = if (settledPlaying.value) 0f else 1f,
-        animationSpec = if (settledPlaying.value) springSpec else tweenSpec,
+        targetValue = target,
+        animationSpec = if (target < 1f) springSpec else tweenSpec,
         visibilityThreshold = 0.001f,
         label = "AlbumBounce"
     )
@@ -2499,6 +2517,25 @@ private fun PlayerControl(
     val progressActive = progressTouched.value || progressPressed.value || progressDragged.value || isSliding.value
     val progressSwell = rememberControlSwell(progressActive, "Progress")
 
+    // The icon follows a settled play state, so the brief pause reported while a
+    // track changes never makes it flicker. A tap updates it immediately.
+    val settledIcon = remember("PlayerControl_settledIcon") { mutableStateOf(isPlayingLambda()) }
+    LaunchedEffect(Unit) {
+        snapshotFlow { isPlayingLambda() }.collectLatest { playing ->
+            if (playing) {
+                settledIcon.value = true
+            } else {
+                delay(320L)
+                settledIcon.value = false
+            }
+        }
+    }
+
+    // The cover reacts to the scrubber being held.
+    LaunchedEffect(progressDragging.value, isSliding.value) {
+        scrubbingArtwork.value = progressDragging.value || isSliding.value
+    }
+
     YosWrapper {
         Column(
             modifier = modifier
@@ -2584,7 +2621,8 @@ private fun PlayerControl(
                         ),
                         interactionSource = progressInteraction,
                         modifier = Modifier
-                            .overlayEffect()
+                            // No overlayEffect here: its offscreen layer cropped the
+                            // swollen bar at its resting bounds.
                             .padding(horizontal = 5.dp)
                             .pointerInput(Unit) {
                                 val slop = viewConfiguration.touchSlop
@@ -2648,7 +2686,6 @@ private fun PlayerControl(
                                 letterSpacing = 0.3.sp,
                                 color = Color.White,
                                 modifier = Modifier
-                                    .overlayEffect()
                                     .graphicsLayer {
                                         translationX = -progressSwell.labelOffset.toPx()
                                         transformOrigin = TransformOrigin(0f, 0.5f)
@@ -2664,7 +2701,6 @@ private fun PlayerControl(
                                 letterSpacing = 0.3.sp,
                                 color = Color.White,
                                 modifier = Modifier
-                                    .overlayEffect()
                                     .graphicsLayer {
                                         translationX = progressSwell.labelOffset.toPx()
                                         transformOrigin = TransformOrigin(1f, 0.5f)
@@ -2721,11 +2757,12 @@ private fun PlayerControl(
                                         onClick = {
                                             Vibrator.click(context)
                                             isPlayingOnChanged(!isPlayingLambda())
+                                            settledIcon.value = isPlayingLambda()
                                             onStatus(isPlayingLambda())
                                         }),
                                 contentAlignment = Alignment.Center
                             ) {
-                                AnimatedContent(targetState = isPlayingLambda(), transitionSpec = {
+                                AnimatedContent(targetState = settledIcon.value, transitionSpec = {
                                     (scaleIn(initialScale = 0.3f) + fadeIn()).togetherWith(
                                         scaleOut(
                                             targetScale = 0.3f
@@ -2926,7 +2963,6 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
             .padding(end = 1.5.dp)
             .padding(horizontal = 8.dp)
             .padding(top = 4.dp, bottom = 2.5.dp)
-            .overlayEffect()
     ) {
         Icon(
             painter = painterResource(id = R.drawable.ic_nowplaying_volume),
@@ -3068,12 +3104,12 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
         label = "${label}Overhang"
     )
     val activeAlpha by animateFloatAsState(
-        targetValue = if (active) 1f else 0.6f,
+        targetValue = if (active) 1f else 0.45f,
         animationSpec = floatSpec,
         label = "${label}ActiveAlpha"
     )
     val inactiveAlpha by animateFloatAsState(
-        targetValue = if (active) 0.28f else 0.06f,
+        targetValue = if (active) 0.28f else 0.05f,
         animationSpec = floatSpec,
         label = "${label}InactiveAlpha"
     )
@@ -3083,7 +3119,7 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
         label = "${label}LabelOffset"
     )
     val labelAlpha by animateFloatAsState(
-        targetValue = if (active) 0.75f else 0.35f,
+        targetValue = if (active) 0.75f else 0.28f,
         animationSpec = floatSpec,
         label = "${label}LabelAlpha"
     )
@@ -3093,7 +3129,7 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
         label = "${label}LabelScale"
     )
     val iconAlpha by animateFloatAsState(
-        targetValue = if (active) 0.85f else 0.4f,
+        targetValue = if (active) 0.85f else 0.3f,
         animationSpec = floatSpec,
         label = "${label}IconAlpha"
     )
@@ -3176,7 +3212,11 @@ private fun Track(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * iOS-style scrolling title: overflowing text glides left after a short pause and
+ * loops. The leading fade only appears once the text has actually moved, so a
+ * still title is never clipped on its left edge.
+ */
 @Composable
 private fun ScrollingSongTitle(
     text: String,
@@ -3203,23 +3243,53 @@ private fun ScrollingSongTitle(
             ).size.width
         }
         val scrolls = available > 0 && textWidth > available
-        Text(
-            text = text,
-            fontSize = fontSize,
-            lineHeight = lineHeight,
-            color = color,
-            maxLines = 1,
-            overflow = if (scrolls) TextOverflow.Clip else TextOverflow.Ellipsis,
-            fontWeight = fontWeight,
-            softWrap = false,
-            modifier = if (!scrolls) Modifier else Modifier
+
+        if (!scrolls) {
+            Text(
+                text = text,
+                fontSize = fontSize,
+                lineHeight = lineHeight,
+                color = color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = fontWeight,
+                softWrap = false
+            )
+            return@BoxWithConstraints
+        }
+
+        val density = LocalDensity.current
+        val gapPx = with(density) { 42.dp.toPx() }
+        val velocityPx = with(density) { 34.dp.toPx() }
+        val offset = remember(text, available) { Animatable(0f) }
+
+        LaunchedEffect(text, available, textWidth) {
+            val distance = textWidth + gapPx
+            while (true) {
+                offset.snapTo(0f)
+                delay(1500)
+                offset.animateTo(
+                    targetValue = -distance,
+                    animationSpec = tween(
+                        durationMillis = ((distance / velocityPx) * 1000f).toInt().coerceAtLeast(1),
+                        easing = LinearEasing
+                    )
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clipToBounds()
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
                     drawContent()
                     val fade = 20.dp.toPx().coerceAtMost(size.width / 4f)
+                    val movedAway = offset.value < -1f
                     drawRect(
                         brush = Brush.horizontalGradient(
-                            0f to Color.Transparent,
+                            0f to if (movedAway) Color.Transparent else Color.Black,
                             (fade / size.width) to Color.Black,
                             (1f - fade / size.width) to Color.Black,
                             1f to Color.Transparent
@@ -3227,15 +3297,31 @@ private fun ScrollingSongTitle(
                         blendMode = BlendMode.DstIn
                     )
                 }
-                .basicMarquee(
-                    iterations = Int.MAX_VALUE,
-                    animationMode = androidx.compose.foundation.MarqueeAnimationMode.Immediately,
-                    repeatDelayMillis = 1400,
-                    initialDelayMillis = 1400,
-                    spacing = androidx.compose.foundation.MarqueeSpacing(42.dp),
-                    velocity = 30.dp
+        ) {
+            Row(modifier = Modifier.graphicsLayer { translationX = offset.value }) {
+                Text(
+                    text = text,
+                    fontSize = fontSize,
+                    lineHeight = lineHeight,
+                    color = color,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    fontWeight = fontWeight,
+                    softWrap = false
                 )
-        )
+                Spacer(modifier = Modifier.width(42.dp))
+                Text(
+                    text = text,
+                    fontSize = fontSize,
+                    lineHeight = lineHeight,
+                    color = color,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
+                    fontWeight = fontWeight,
+                    softWrap = false
+                )
+            }
+        }
     }
 }
 

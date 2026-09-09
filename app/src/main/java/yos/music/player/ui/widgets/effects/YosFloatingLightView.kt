@@ -120,7 +120,9 @@ fun YosFloatingLight(
                         modifier = Modifier
                             .fillMaxSize()
                             .blur(14.dp * revealProgress(), BlurredEdgeTreatment.Unbounded)
-                            .graphicsLayer { alpha = 0.72f + (0.28f * revealProgress()) }
+                            .graphicsLayer {
+                                alpha = (1f - fade.value) * (0.72f + (0.28f * revealProgress()))
+                            }
                     )
                 }
                 currentImage.value?.let { current ->
@@ -160,7 +162,9 @@ fun YosFloatingLight(
                         bitmap = previous,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { this.alpha = 1f - fade.value },
                         colorFilter = ColorFilter.tint(Color(0x33000000), BlendMode.Overlay)
                     )
                 }
