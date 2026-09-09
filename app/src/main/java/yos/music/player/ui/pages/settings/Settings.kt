@@ -21,7 +21,6 @@ import yos.music.player.R
 import yos.music.player.code.MediaController
 import yos.music.player.data.libraries.MusicLibrary
 import yos.music.player.data.libraries.SettingsLibrary
-import yos.music.player.data.spotify.SpotifyAuth
 import yos.music.player.ui.UI
 import yos.music.player.ui.toUI
 import yos.music.player.ui.widgets.basic.RoundColumn
@@ -41,20 +40,11 @@ fun Settings(navController: NavController) =
                         // GroupSpacerMedium()
                         ListHeader(stringResource(id = R.string.page_library_title))
                         RoundColumn {
-                            SwitchItem(
-                                title = stringResource(id = R.string.settings_library_refresh_everytime),
-                                onClick = {
-                                    SettingsLibrary.RefreshEveryTime =
-                                        !SettingsLibrary.RefreshEveryTime
-                                },
-                                checkedLambda = { SettingsLibrary.RefreshEveryTime }
-                            )
-
-                            Divider()
                             LabelItem(title = stringResource(id = R.string.settings_library_overview)) {
                                 navController.toUI(UI.Settings.LibraryOverview)
                             }
                         }
+
 
                         GroupSpacerMedium()
                         RoundColumn {
@@ -159,27 +149,8 @@ fun Settings(navController: NavController) =
                             }
                         }
 
-                        GroupSpacer()
-                        ListHeader(stringResource(id = R.string.settings_spotify_title))
-                        RoundColumn {
-                            val signedIn = SpotifyAuth.signedIn.value
-                            val account = SpotifyAuth.accountName.value
-                            LabelItem(
-                                title = stringResource(
-                                    id = if (signedIn) R.string.settings_spotify_disconnect
-                                    else R.string.settings_spotify_connect
-                                ),
-                                desc = if (signedIn && account != null) {
-                                    stringResource(id = R.string.settings_spotify_connected, account)
-                                } else {
-                                    stringResource(id = R.string.settings_spotify_connect_desc)
-                                },
-                                superLink = !signedIn
-                            ) {
-                                if (signedIn) SpotifyAuth.signOut()
-                                else SpotifyAuth.startLogin(context)
-                            }
-                        }
+
+
 
                         GroupSpacer()
                         ListHeader(stringResource(id = R.string.settings_others))

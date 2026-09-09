@@ -545,30 +545,31 @@ fun NowPlaying(
                                                 animatedAlbumCoverState = animatedAlbumCoverState,
                                                 isPlaying = isPlayingStatusLambda
                                             )
-                                            AnimatedContent(
-                                                targetState = thisMusicPlaying.value,
-                                                transitionSpec = {
-                                                    // 500 ms sequential fade-through between
-                                                    // tracks; container size snaps so the
-                                                    // artwork above never moves.
-                                                    fadeIn(tween(250, delayMillis = 250, easing = EaseInOut)) togetherWith
-                                                            fadeOut(tween(250, easing = EaseInOut)) using SizeTransform(
-                                                        clip = false,
-                                                        sizeAnimationSpec = { _, _ -> snap() }
-                                                    )
-                                                }, modifier = Modifier.padding(horizontal = 32.dp)
+                                            Row(
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 32.dp),
+                                                verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Row(
-                                                    Modifier
-                                                        .fillMaxWidth(),
-                                                    verticalAlignment = Alignment.CenterVertically
+                                                // Only the name and artist fade between
+                                                // tracks; the buttons stay put.
+                                                AnimatedContent(
+                                                    targetState = thisMusicPlaying.value,
+                                                    transitionSpec = {
+                                                        fadeIn(tween(250, delayMillis = 250, easing = EaseInOut)) togetherWith
+                                                                fadeOut(tween(250, easing = EaseInOut)) using SizeTransform(
+                                                            clip = false,
+                                                            sizeAnimationSpec = { _, _ -> snap() }
+                                                        )
+                                                    },
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .padding(end = 15.dp)
                                                 ) {
                                                     Column(
                                                         Modifier
                                                             .fillMaxWidth()
-                                                            .weight(1f)
-                                                            .height(52.dp)
-                                                            .padding(end = 15.dp),
+                                                            .height(52.dp),
                                                         verticalArrangement = Arrangement.Center
                                                     ) {
                                                         ScrollingSongTitle(
@@ -617,14 +618,15 @@ fun NowPlaying(
                                                                 }
                                                         )
                                                     }
+                                                }
 
-                                                    YosWrapper {
-                                                        ActionButtonsRow(navController, onMinimizeNowPlaying) {
-                                                            it
-                                                        }
+                                                YosWrapper {
+                                                    ActionButtonsRow(navController, onMinimizeNowPlaying) {
+                                                        thisMusicPlaying.value
                                                     }
                                                 }
                                             }
+
                                         }
                                     }
                                 }
@@ -942,13 +944,11 @@ private fun ColumnScope.Album(
     val tweenSpec: AnimationSpec<Float> = remember("Album_tweenSpec") {
         TweenSpec(durationMillis = 350, easing = EaseOutCubic)
     }
-    // While scrubbing the cover recedes part of the way, and glides back on release.
+    // While scrubbing the cover recedes all the way, like the paused state, and
+    // glides back forward on release.
     val scrubbing = scrubbingArtwork.value
-    val target = when {
-        !settledPlaying.value -> 1f
-        scrubbing -> 0.45f
-        else -> 0f
-    }
+    val target = if (!settledPlaying.value || scrubbing) 1f else 0f
+
     val scale = animateFloatAsState(
         targetValue = target,
         animationSpec = if (target < 1f) springSpec else tweenSpec,
@@ -2585,10 +2585,28 @@ private fun PlayerControl(
                 // 进度条
                 YosWrapper {
                     //println("重组：控制区域内部 - 进度条")
+                    // The position only ticks once a second, so glide the fill between
+                    // ticks; jumps backwards (seek, track change) snap instantly.
+                    val glidingProgress = remember("PlayerControl_glide") { Animatable(0f) }
+                    LaunchedEffect(sliderPosition.floatValue, isSliding.value) {
+                        val target = sliderPosition.floatValue
+                        if (isSliding.value || target <= glidingProgress.value) {
+                            glidingProgress.snapTo(target)
+                        } else {
+                            glidingProgress.animateTo(
+                                targetValue = target,
+                                animationSpec = tween(1000, easing = LinearEasing)
+                            )
+                        }
+                    }
                     // Reacts on touch down: swells, brightens and stretches slightly while
                     // held, then springs back on release.
                     Slider(
-                        value = sliderPosition.floatValue,
+                        value = glidingProgress.value.coerceIn(
+                            0f,
+                            playingDuration.longValue.toFloat().coerceAtLeast(0f)
+                        ),
+
                         onValueChange = { newValue ->
                             if (!progressDragging.value) return@Slider
                             isSliding.value = true
@@ -3104,12 +3122,12 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
         label = "${label}Overhang"
     )
     val activeAlpha by animateFloatAsState(
-        targetValue = if (active) 1f else 0.45f,
+        targetValue = if (active) 0.8f else 0.4f,
         animationSpec = floatSpec,
         label = "${label}ActiveAlpha"
     )
     val inactiveAlpha by animateFloatAsState(
-        targetValue = if (active) 0.28f else 0.05f,
+        targetValue = if (active) 0.22f else 0.05f,
         animationSpec = floatSpec,
         label = "${label}InactiveAlpha"
     )
@@ -3119,7 +3137,7 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
         label = "${label}LabelOffset"
     )
     val labelAlpha by animateFloatAsState(
-        targetValue = if (active) 0.75f else 0.28f,
+        targetValue = if (active) 0.6f else 0.25f,
         animationSpec = floatSpec,
         label = "${label}LabelAlpha"
     )
@@ -3129,7 +3147,7 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
         label = "${label}LabelScale"
     )
     val iconAlpha by animateFloatAsState(
-        targetValue = if (active) 0.85f else 0.3f,
+        targetValue = if (active) 0.7f else 0.28f,
         animationSpec = floatSpec,
         label = "${label}IconAlpha"
     )
@@ -3265,9 +3283,10 @@ private fun ScrollingSongTitle(
 
         LaunchedEffect(text, available, textWidth) {
             val distance = textWidth + gapPx
+            // Wait once so the start of the name is readable, then keep looping.
+            offset.snapTo(0f)
+            delay(1500)
             while (true) {
-                offset.snapTo(0f)
-                delay(1500)
                 offset.animateTo(
                     targetValue = -distance,
                     animationSpec = tween(
@@ -3275,8 +3294,10 @@ private fun ScrollingSongTitle(
                         easing = LinearEasing
                     )
                 )
+                offset.snapTo(0f)
             }
         }
+
 
         Box(
             modifier = Modifier

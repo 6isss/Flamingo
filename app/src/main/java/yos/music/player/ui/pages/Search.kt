@@ -1,17 +1,15 @@
 package yos.music.player.ui.pages
 
-import android.content.Intent
-import android.net.Uri
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,36 +19,26 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.random.Random
 import androidx.navigation.NavController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.random.Random
 import yos.music.player.R
 import yos.music.player.code.MediaController
 import yos.music.player.data.libraries.MusicLibrary
 import yos.music.player.data.libraries.YosMediaItem
-import yos.music.player.data.objects.LibraryObject
-import yos.music.player.ui.widgets.basic.ImageQuality
-import yos.music.player.ui.widgets.basic.ShadowImage
-import yos.music.player.data.spotify.SpotiFlacLauncher
-import yos.music.player.data.spotify.SpotifyApi
-import yos.music.player.data.spotify.SpotifyAuth
-import yos.music.player.data.spotify.SpotifyResult
 import yos.music.player.ui.UI
 import yos.music.player.ui.pages.library.MusicList
 import yos.music.player.ui.pages.library.playlists.PlayListSearch
@@ -60,34 +48,29 @@ import yos.music.player.ui.widgets.basic.SearchTextField
 import yos.music.player.ui.widgets.basic.Title
 
 private const val SEARCH_DEBOUNCE_MS = 150L
-private const val SPOTIFY_DEBOUNCE_MS = 350L
 private const val SEARCH_MAX_RESULTS = 100
+private const val BROWSE_CARD_COUNT = 10
+
+private data class BrowseTile(
+    val label: String,
+    val songs: List<YosMediaItem>,
+    val color: Color,
+    val grainSeed: Int
+)
 
 @Composable
 fun Search(navController: NavController) {
     val songs = runCatching { MusicLibrary.songs }.getOrDefault(emptyList())
-    val context = LocalContext.current
 
     val searchText = remember { mutableStateOf("") }
     val results = remember { mutableStateOf(songs) }
-    val onlineMode = remember { mutableStateOf(false) }
-    val spotifyResults = remember { mutableStateOf(emptyList<SpotifyResult>()) }
-    val spotifyLoading = remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
-    // A fresh palette order every time the Search tab is entered.
-    val palette = remember {
-        val random = Random(System.nanoTime())
-        listOf(6f, 28f, 48f, 96f, 152f, 188f, 214f, 252f, 288f, 322f).shuffled(random)
-    }
 
-    // Signing in makes Spotify the active source straight away.
-    LaunchedEffect(SpotifyAuth.signedIn.value) {
-        if (SpotifyAuth.signedIn.value) onlineMode.value = true
-    }
+    // A fresh set of colours (and grain) every time Search is opened.
+    val tiles = remember(songs) { buildBrowseTiles(songs) }
 
-    // Debounced fuzzy search across the whole library, ranked by
-    // relevance (same engine as the in-playlist search).
+    // Debounced fuzzy search across the whole library, ranked by relevance.
     LaunchedEffect(searchText.value, songs) {
         val query = searchText.value
         if (query.isBlank()) {
@@ -100,20 +83,6 @@ fun Search(navController: NavController) {
         }
     }
 
-    // Debounced Spotify catalogue search (metadata only).
-    LaunchedEffect(searchText.value, onlineMode.value) {
-        val query = searchText.value
-        if (!onlineMode.value || query.isBlank()) {
-            spotifyResults.value = emptyList()
-            spotifyLoading.value = false
-            return@LaunchedEffect
-        }
-        delay(SPOTIFY_DEBOUNCE_MS)
-        spotifyLoading.value = true
-        spotifyResults.value = SpotifyApi.search(query)
-        spotifyLoading.value = false
-    }
-
     Title(
         title = stringResource(id = R.string.page_search_title),
         rightIconContent = {
@@ -123,10 +92,7 @@ fun Search(navController: NavController) {
             item("SearchField") {
                 SearchTextField(
                     text = searchText.value,
-                    placeholder = stringResource(
-                        id = if (onlineMode.value) R.string.search_spotify_placeholder
-                        else R.string.search_library_placeholder
-                    ),
+                    placeholder = stringResource(id = R.string.search_library_placeholder),
                     onValueChange = { searchText.value = it },
                     onSearch = {},
                     modifier = Modifier
@@ -136,72 +102,10 @@ fun Search(navController: NavController) {
                 )
             }
 
-            item("SearchSource") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(top = 12.dp)
-                        .clip(RoundedCornerShape(9.dp))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .padding(3.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SearchSourceTab(
-                        label = stringResource(id = R.string.search_source_library),
-                        selected = !onlineMode.value,
-                        modifier = Modifier.weight(1f)
-                    ) { onlineMode.value = false }
-                    SearchSourceTab(
-                        label = stringResource(id = R.string.search_source_spotify),
-                        selected = onlineMode.value,
-                        modifier = Modifier.weight(1f)
-                    ) { onlineMode.value = true }
-                }
-            }
-
-            if (onlineMode.value) {
-                if (!SpotifyApi.isConfigured) {
-                    item("SpotifyNotConfigured") {
-                        SearchMessage(stringResource(id = R.string.search_spotify_unavailable))
-                    }
-                } else if (spotifyLoading.value) {
-                    item("SpotifyLoading") {
-                        SearchMessage(stringResource(id = R.string.search_spotify_loading))
-                    }
-                } else if (searchText.value.isNotBlank() && spotifyResults.value.isEmpty()) {
-                    item("SpotifyNoResults") {
-                        SearchMessage(stringResource(id = R.string.search_no_results))
-                    }
-                }
-
+            if (searchText.value.isBlank()) {
                 items(
-                    spotifyResults.value,
-                    key = { result: SpotifyResult -> "${result.type}_${result.id}" }
-                ) { result ->
-                    SpotifyResultRow(
-                        result = result,
-                        onClick = {
-                            keyboard?.hide()
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, Uri.parse(result.externalUrl))
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                )
-                            }
-                        },
-                        onDownload = {
-                            SpotiFlacLauncher.download(context, result.externalUrl)
-                        }
-                    )
-                }
-            } else if (searchText.value.isBlank()) {
-                val browseAlbums = remember(songs) {
-                    runCatching { MusicLibrary.albums }.getOrDefault(emptyList()).take(10)
-                }
-                items(
-                    browseAlbums.chunked(2),
-                    key = { row: List<String> -> "browse_${row.first()}" }
+                    tiles.chunked(2),
+                    key = { row: List<BrowseTile> -> "browse_${row.first().label}" }
                 ) { row ->
                     Row(
                         modifier = Modifier
@@ -209,19 +113,18 @@ fun Search(navController: NavController) {
                             .padding(horizontal = 20.dp)
                             .padding(top = 14.dp)
                     ) {
-                        row.forEachIndexed { index, album ->
+                        row.forEachIndexed { index, tile ->
                             if (index > 0) Spacer(modifier = Modifier.width(14.dp))
-                            val hue = palette[
-                                (browseAlbums.indexOf(album)).coerceAtLeast(0) % palette.size
-                            ]
                             BrowseCard(
-                                albumName = album,
-                                hue = hue,
+                                tile = tile,
                                 modifier = Modifier.weight(1f)
                             ) {
                                 keyboard?.hide()
-                                LibraryObject.setTargetAlbumName(album)
-                                navController.toUI(UI.AlbumInfo)
+                                if (tile.songs.isNotEmpty()) {
+                                    scope.launch(Dispatchers.IO) {
+                                        MediaController.prepare(tile.songs.first(), tile.songs)
+                                    }
+                                }
                             }
                         }
                         if (row.size == 1) {
@@ -260,73 +163,73 @@ fun Search(navController: NavController) {
 }
 
 /**
- * Full-bleed album card for the empty search state: artwork under a dramatic
- * monochromatic wash. The hue comes from a palette that is reshuffled every
- * time the Search tab is opened.
+ * Builds the browse grid: one card per genre found in the library, falling back
+ * to albums when the files carry no genre tags. Colours are flat, saturated and
+ * reshuffled on every visit.
  */
-@Composable
-private fun BrowseCard(
-    albumName: String,
-    hue: Float,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val songs = runCatching { MusicLibrary.Album[albumName] }.getOrDefault(emptyList())
-    val shape = RoundedCornerShape(18.dp)
-    val gradient = remember(hue) {
-        Brush.linearGradient(
-            listOf(
-                Color.hsl(hue, 0.95f, 0.58f).copy(alpha = 0.62f),
-                Color.hsl(hue, 1f, 0.18f).copy(alpha = 0.92f)
-            )
-        )
+private fun buildBrowseTiles(songs: List<YosMediaItem>): List<BrowseTile> {
+    val random = Random(System.nanoTime())
+    val hues = listOf(6f, 28f, 48f, 96f, 152f, 188f, 214f, 252f, 288f, 322f).shuffled(random)
+
+    val byGenre = songs
+        .filter { !it.genre.isNullOrBlank() }
+        .groupBy { it.genre!!.trim() }
+
+    val grouped: List<Pair<String, List<YosMediaItem>>> = if (byGenre.isNotEmpty()) {
+        byGenre.entries.sortedByDescending { it.value.size }.map { it.key to it.value }
+    } else {
+        songs
+            .filter { !it.album.isNullOrBlank() }
+            .groupBy { it.album!!.trim() }
+            .entries.sortedByDescending { it.value.size }
+            .map { it.key to it.value }
     }
-    Box(
-        modifier = modifier
-            .aspectRatio(1.35f)
-            .clip(shape)
-            .clickable(onClick = onClick)
-    ) {
-        ShadowImage(
-            dataLambda = { songs.getOrNull(0)?.thumb },
-            contentDescription = albumName,
-            modifier = Modifier.fillMaxWidth(),
-            shadowAlpha = 0f,
-            cornerRadius = 18.dp,
-            imageQuality = ImageQuality.HIGH
-        )
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(gradient)
-        )
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .border(1.dp, Color.White.copy(alpha = 0.14f), shape)
+
+    return grouped.take(BROWSE_CARD_COUNT).mapIndexed { index, (label, items) ->
+        val hue = hues[index % hues.size]
+        BrowseTile(
+            label = label,
+            songs = items,
+            color = Color.hsl(hue, 0.82f, 0.42f),
+            grainSeed = random.nextInt()
         )
     }
 }
 
+/**
+ * Flat monochromatic card with a subtle film grain. No text: the colour is the
+ * whole design, and it changes on every visit to Search.
+ */
 @Composable
-private fun SearchSourceTab(
-    label: String,
-    selected: Boolean,
+private fun BrowseCard(
+    tile: BrowseTile,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Text(
-        text = label,
-        fontSize = 15.sp,
-        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-        textAlign = TextAlign.Center,
+    val shape = RoundedCornerShape(18.dp)
+    Box(
         modifier = modifier
-            .clip(RoundedCornerShape(7.dp))
-            .background(if (selected) Color.White.copy(alpha = 0.14f) else Color.Transparent)
+            .aspectRatio(1.35f)
+            .clip(shape)
+            .background(tile.color)
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp)
-            .alpha(if (selected) 1f else 0.6f)
-    )
+    ) {
+        Canvas(modifier = Modifier.fillMaxWidth().aspectRatio(1.35f)) {
+            val random = Random(tile.grainSeed)
+            val dots = 700
+            repeat(dots) {
+                val x = random.nextFloat() * size.width
+                val y = random.nextFloat() * size.height
+                val light = random.nextBoolean()
+                drawRect(
+                    color = if (light) Color.White.copy(alpha = 0.05f)
+                    else Color.Black.copy(alpha = 0.06f),
+                    topLeft = Offset(x, y),
+                    size = Size(1.6f, 1.6f)
+                )
+            }
+        }
+    }
 }
 
 @Composable

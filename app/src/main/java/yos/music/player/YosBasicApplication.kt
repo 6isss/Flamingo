@@ -27,9 +27,6 @@ class YosBasicApplication : Application() {
         // 初始化 MMKV
         MMKV.initialize(this)
 
-        // Restore any saved Spotify session.
-        yos.music.player.data.spotify.SpotifyAuth.init(this)
-
         val gson =
             GsonBuilder()
             //.registerTypeAdapter(Uri::class.java, UriSerializer())

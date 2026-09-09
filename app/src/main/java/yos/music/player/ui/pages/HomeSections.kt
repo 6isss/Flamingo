@@ -154,7 +154,7 @@ fun RecommendGrid() {
     if (musicList.isEmpty()) {return}
 
     val gridSongs = remember("RecommendGrid_songs") {
-        mutableListOf<YosMediaItem>().apply { addAll(musicList.pickRandom(6)) }
+        mutableListOf<YosMediaItem>().apply { addAll(musicList.pickRandom(4)) }
     }
     if (gridSongs.isEmpty()) {return}
 

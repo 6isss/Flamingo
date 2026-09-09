@@ -4,6 +4,8 @@ import android.graphics.drawable.Drawable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -24,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -89,9 +92,6 @@ fun Home(
             }
             item("GenresRow") {
                 GenresRow()
-            }
-            item("RecommendCard") {
-                RecommendCard(imageViewModel)
             }
             item("RecentlyPlayedCard") {
                 RecentlyPlayedCard()
@@ -233,7 +233,9 @@ fun RecentlyPlayedCard()
 
     if (displayItems.isEmpty()) {return}
 
-    val pagerState = rememberPagerState(pageCount = { displayItems.size })
+    // Four entries per page, laid out as a 2x2 block that swipes sideways.
+    val pages = remember(displayItems) { displayItems.chunked(4) }
+    val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
 
     Column(
@@ -251,57 +253,131 @@ fun RecentlyPlayedCard()
 
         HorizontalPager(
             state = pagerState,
-            pageSize = PageSize.Fixed(278.dp),
-            contentPadding = PaddingValues(start = 20.dp, end = 136.dp),
-            key = { pageIndex ->
-                when (val displayItem = displayItems[pageIndex])
-                {
-                    is RecentlyPlayedDisplayItem.Song -> "$pageIndex:song:${displayItem.song.uri}"
-                    is RecentlyPlayedDisplayItem.AlbumGroup -> "$pageIndex:album:${displayItem.albumName}"
-                }
-            },
+            pageSize = PageSize.Fill,
+            contentPadding = PaddingValues(start = 20.dp, end = 56.dp, top = 12.dp),
+            pageSpacing = 12.dp,
+            key = { pageIndex -> "recent_page_$pageIndex" },
             beyondViewportPageCount = 1
         ) { page ->
-            when (val displayItem = displayItems[page])
-            {
-                is RecentlyPlayedDisplayItem.Song ->
-                {
-                    val songsOnlyFromDisplayItems = displayItems.filterIsInstance<RecentlyPlayedDisplayItem.Song>().map { it.song }
-                    RecommendCardItem(
-                        music = displayItem.song,
-                        onClick = {
-                            scope.launch(Dispatchers.IO) {
-                                MediaController.prepare(
-                                    displayItem.song,
-                                    songsOnlyFromDisplayItems
-                                )
-                            }
-                        }
-                    )
-                }
-                is RecentlyPlayedDisplayItem.AlbumGroup ->
-                {
-                    RecentlyPlayedAlbumCardItem(
-                        albumGroup = displayItem,
-                        onClick = {
-                            scope.launch(Dispatchers.IO) {
-                                val fullAlbumSongs = runCatching { MusicLibrary.Album[displayItem.albumName] }.getOrDefault(emptyList())
-                                    .sortedWith(compareBy({ it.discNumber ?: 0 }, { it.trackNumber ?: 0 }))
-                                if (fullAlbumSongs.isNotEmpty())
-                                {
-                                    MediaController.prepare(
-                                        fullAlbumSongs.first(),
-                                        fullAlbumSongs
-                                    )
+            val pageItems = pages[page]
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                pageItems.chunked(2).forEach { rowItems ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        rowItems.forEach { displayItem ->
+                            RecentlyPlayedMiniItem(
+                                displayItem = displayItem,
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    when (displayItem) {
+                                        is RecentlyPlayedDisplayItem.Song -> {
+                                            val songsOnly = displayItems
+                                                .filterIsInstance<RecentlyPlayedDisplayItem.Song>()
+                                                .map { it.song }
+                                            scope.launch(Dispatchers.IO) {
+                                                MediaController.prepare(displayItem.song, songsOnly)
+                                            }
+                                        }
+
+                                        is RecentlyPlayedDisplayItem.AlbumGroup -> {
+                                            scope.launch(Dispatchers.IO) {
+                                                val fullAlbumSongs = runCatching {
+                                                    MusicLibrary.Album[displayItem.albumName]
+                                                }.getOrDefault(emptyList())
+                                                    .sortedWith(
+                                                        compareBy(
+                                                            { it.discNumber ?: 0 },
+                                                            { it.trackNumber ?: 0 })
+                                                    )
+                                                if (fullAlbumSongs.isNotEmpty()) {
+                                                    MediaController.prepare(
+                                                        fullAlbumSongs.first(),
+                                                        fullAlbumSongs
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
-                            }
+                            )
                         }
-                    )
+                        if (rowItems.size == 1) {
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                color = Color.Transparent
+                            ) {}
+                        }
+                    }
                 }
             }
         }
     }
 }
+
+/** Compact square tile used inside the Recently Played 2x2 pages. */
+@Composable
+private fun RecentlyPlayedMiniItem(
+    displayItem: RecentlyPlayedDisplayItem,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val thumb = when (displayItem) {
+        is RecentlyPlayedDisplayItem.Song -> displayItem.song.thumb
+        is RecentlyPlayedDisplayItem.AlbumGroup ->
+            runCatching { MusicLibrary.Album[displayItem.albumName] }
+                .getOrDefault(emptyList()).firstOrNull()?.thumb
+    }
+    val title = when (displayItem) {
+        is RecentlyPlayedDisplayItem.Song -> displayItem.song.title ?: defaultTitle
+        is RecentlyPlayedDisplayItem.AlbumGroup -> displayItem.albumName
+    }
+    val subtitle = when (displayItem) {
+        is RecentlyPlayedDisplayItem.Song -> displayItem.song.artistsName ?: defaultArtistsName
+        is RecentlyPlayedDisplayItem.AlbumGroup -> defaultAlbum
+    }
+
+    Column(
+        modifier.clickable(onClick = onClick)
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(thumb)
+                .memoryCacheKey(thumb?.toString())
+                .crossfade(150)
+                .error(R.drawable.placeholder_music_default_artwork)
+                .fallback(R.drawable.placeholder_music_default_artwork)
+                .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(YosRoundedCornerShape(14.dp))
+        )
+        Text(
+            text = title,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp,
+            lineHeight = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        Text(
+            text = subtitle,
+            fontSize = 12.sp,
+            lineHeight = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .alpha(0.6f)
+                .padding(top = 2.dp)
+        )
+    }
+}
+
 
 @Composable
 fun RecentlyPlayedAlbumCardItem(

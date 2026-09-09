@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
-import com.blankj.utilcode.util.AppUtils
 import yos.music.player.R
 import yos.music.player.ui.pages.settings.DefaultItem
 import yos.music.player.ui.pages.settings.GroupSpacer
@@ -35,7 +34,7 @@ fun About(navController: NavController) =
 
                         ListHeader(content = stringResource(id = R.string.settings_others_about_info))
                         val appVersion = remember("About_appVersion") {
-                            mutableStateOf(AppUtils.getAppVersionName())
+                            mutableStateOf("3.0")
                         }
                         val telegramLink = "aHR0cHM6Ly90Lm1lL0ZsYW1pbmdvVXBkYXRlQW5kTmV3cw=="
 
@@ -52,11 +51,11 @@ fun About(navController: NavController) =
                         ListHeader(content = stringResource(id = R.string.settings_others_about_developers))
                         RoundColumn {
                             LabelItem(
-                                title = "Yos-X (MULTIPLY STUDIO)",
+                                title = "6is",
                                 desc = stringResource(id = R.string.settings_others_about_developers_yos_x)
                             ) {
                                 startWeb(
-                                    url = "https://github.com/Yos-X",
+                                    url = "https://github.com/6isss",
                                     context
                                 )
                             }
