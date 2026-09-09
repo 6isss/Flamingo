@@ -20,7 +20,12 @@
     <string name="search_source_library">My library</string>
     <string name="search_source_spotify">Spotify</string>
     <string name="search_spotify_loading">Searching Spotify…</string>
-    <string name="search_spotify_unavailable">Spotify search is not set up yet.</string>
+    <string name="search_spotify_unavailable">Sign in to Spotify in Settings to search the Spotify catalogue.</string>
+    <string name="settings_spotify_title">Spotify</string>
+    <string name="settings_spotify_connect">Sign in to Spotify</string>
+    <string name="settings_spotify_connect_desc">Enables Spotify search and metadata</string>
+    <string name="settings_spotify_disconnect">Sign out of Spotify</string>
+    <string name="settings_spotify_connected">Signed in as %1$s</string>
     <string name="search_no_results">No Results</string>
     <string name="home_quick_most_played">Most Played</string>
     <string name="home_quick_shuffle">Shuffle</string>

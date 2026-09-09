@@ -37,14 +37,22 @@ object SpotifyApi {
     @Volatile
     private var tokenExpiresAt = 0L
 
+    /** Signing in inside Settings is enough; build-time credentials stay optional. */
     val isConfigured: Boolean
+        get() = SpotifyAuth.signedIn.value ||
+                (BuildConfig.SPOTIFY_CLIENT_ID.isNotBlank() &&
+                        BuildConfig.SPOTIFY_CLIENT_SECRET.isNotBlank())
+
+    private val hasClientCredentials: Boolean
         get() = BuildConfig.SPOTIFY_CLIENT_ID.isNotBlank() &&
                 BuildConfig.SPOTIFY_CLIENT_SECRET.isNotBlank()
 
     private fun accessToken(): String? {
+        SpotifyAuth.accessToken()?.let { return it }
+
         val cached = token
         if (cached != null && System.currentTimeMillis() < tokenExpiresAt) return cached
-        if (!isConfigured) return null
+        if (!hasClientCredentials) return null
 
         val credentials = Base64.encodeToString(
             "${BuildConfig.SPOTIFY_CLIENT_ID}:${BuildConfig.SPOTIFY_CLIENT_SECRET}".toByteArray(),

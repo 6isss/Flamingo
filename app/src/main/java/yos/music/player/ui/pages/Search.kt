@@ -4,10 +4,15 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -20,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -36,6 +42,9 @@ import yos.music.player.R
 import yos.music.player.code.MediaController
 import yos.music.player.data.libraries.MusicLibrary
 import yos.music.player.data.libraries.YosMediaItem
+import yos.music.player.data.objects.LibraryObject
+import yos.music.player.ui.widgets.basic.ImageQuality
+import yos.music.player.ui.widgets.basic.ShadowImage
 import yos.music.player.data.spotify.SpotiFlacLauncher
 import yos.music.player.data.spotify.SpotifyApi
 import yos.music.player.data.spotify.SpotifyResult
@@ -171,8 +180,38 @@ fun Search(navController: NavController) {
                         }
                     )
                 }
+            } else if (searchText.value.isBlank()) {
+                val browseAlbums = remember(songs) {
+                    runCatching { MusicLibrary.albums }.getOrDefault(emptyList()).take(10)
+                }
+                items(
+                    browseAlbums.chunked(2),
+                    key = { row: List<String> -> "browse_${row.first()}" }
+                ) { row ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .padding(top = 14.dp)
+                    ) {
+                        row.forEachIndexed { index, album ->
+                            if (index > 0) Spacer(modifier = Modifier.width(14.dp))
+                            BrowseCard(
+                                albumName = album,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                LibraryObject.setTargetAlbumName(album)
+                                navController.toUI(UI.AlbumInfo)
+                            }
+                        }
+                        if (row.size == 1) {
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
             } else {
-                if (searchText.value.isNotBlank() && results.value.isEmpty()) {
+                if (results.value.isEmpty()) {
                     item("SearchNoResults") {
                         SearchMessage(stringResource(id = R.string.search_no_results))
                     }
@@ -197,6 +236,64 @@ fun Search(navController: NavController) {
             }
         }
     )
+}
+
+/**
+ * Full-bleed album card for the empty search state: square artwork under a
+ * saturated gradient wash whose hue is derived from the album name, so it stays
+ * the same between visits.
+ */
+@Composable
+private fun BrowseCard(
+    albumName: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val songs = runCatching { MusicLibrary.Album[albumName] }.getOrDefault(emptyList())
+    val shape = RoundedCornerShape(18.dp)
+    val gradient = remember(albumName) {
+        val hue = (albumName.hashCode().toLong() and 0xFFFFFF) % 360L
+        Brush.linearGradient(
+            listOf(
+                Color.hsl(hue.toFloat(), 0.85f, 0.55f).copy(alpha = 0.55f),
+                Color.hsl(((hue + 55) % 360).toFloat(), 0.9f, 0.35f).copy(alpha = 0.75f)
+            )
+        )
+    }
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .clip(shape)
+            .clickable(onClick = onClick)
+    ) {
+        ShadowImage(
+            dataLambda = { songs.getOrNull(0)?.thumb },
+            contentDescription = albumName,
+            modifier = Modifier.fillMaxWidth(),
+            shadowAlpha = 0f,
+            cornerRadius = 18.dp,
+            imageQuality = ImageQuality.HIGH
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(gradient)
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .border(1.dp, Color.White.copy(alpha = 0.14f), shape)
+        )
+        Text(
+            text = albumName,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(14.dp)
+        )
+    }
 }
 
 @Composable

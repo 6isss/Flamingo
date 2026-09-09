@@ -580,15 +580,40 @@ fun NowPlaying(
                                                                 .fillMaxWidth()
                                                                 .height(26.dp)
                                                         )
-                                                        Text(
+                                                        val artistNavScope =
+                                                            rememberCoroutineScope()
+                                                        val firstArtist =
+                                                            it?.artistsList.orEmpty()
+                                                                .firstOrNull { name -> name.isNotBlank() }
+                                                        ScrollingSongTitle(
                                                             text = it?.artistsName
                                                                 ?: defaultArtistsName,
                                                             fontSize = 18.5.sp,
                                                             lineHeight = 26.sp,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis,
+                                                            fontWeight = FontWeight.Normal,
                                                             color = Color.White.copy(alpha = 0.35f),
-                                                            modifier = Modifier.height(26.dp)
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(26.dp)
+                                                                .clickable(
+                                                                    enabled = firstArtist != null,
+                                                                    indication = null,
+                                                                    interactionSource = remember { MutableInteractionSource() }
+                                                                ) {
+                                                                    val artistName =
+                                                                        firstArtist ?: return@clickable
+                                                                    LibraryObject.setTargetArtistName(
+                                                                        artistName
+                                                                    )
+                                                                    LibraryObject.setArtistSongsSearchOnOpen(
+                                                                        false
+                                                                    )
+                                                                    navController.markNextNavigationFromNowPlaying()
+                                                                    artistNavScope.launch {
+                                                                        onMinimizeNowPlaying()
+                                                                    }
+                                                                    navController.toUI(UI.ArtistInfo)
+                                                                }
                                                         )
                                                     }
 
@@ -924,7 +949,7 @@ private fun ColumnScope.Album(
                 .padding(start = dp, end = dp, bottom = dp)
                 .then(modifier),
             imageQuality = ImageQuality.RAW,
-            cornerRadius = 6.dp,
+            cornerRadius = 9.dp,
             crossfade = false,
             shadowOverlay = true,
             overlayContent = {
@@ -2266,14 +2291,16 @@ private fun PlayingBar(
                 lineHeight = 16.5.sp,
                 modifier = Modifier.fillMaxWidth()
             )
-            Text(
+            ScrollingSongTitle(
                 text = musicPlayingLambda()?.artistsName
                     ?: defaultArtistsName,
                 fontSize = 15.sp,
-                modifier = Modifier.overlayEffect(),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = Color.White.copy(alpha = 0.35f)
+                lineHeight = 15.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.White.copy(alpha = 0.35f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .overlayEffect()
             )
         }
 
@@ -2558,6 +2585,7 @@ private fun PlayerControl(
                         interactionSource = progressInteraction,
                         modifier = Modifier
                             .overlayEffect()
+                            .padding(horizontal = 5.dp)
                             .pointerInput(Unit) {
                                 val slop = viewConfiguration.touchSlop
                                 awaitEachGesture {
@@ -2710,7 +2738,7 @@ private fun PlayerControl(
                                             contentDescription = "Pause",
                                             modifier = Modifier
                                                 .fillMaxSize()
-                                                .padding(9.dp)
+                                                .padding(6.4.dp)
                                         )
                                     } else {
                                         Icon(
@@ -2763,6 +2791,7 @@ private fun PlayerControl(
                     modifier = Modifier
                         .overlayEffect()
                         .fillMaxWidth()
+                        .padding(top = 12.dp)
                         .alpha(0.4f),
                     horizontalArrangement = Arrangement.Center
                 ) {
@@ -2862,6 +2891,7 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
         mutableStateOf(false)
     }
     val volumeTouched = remember("VolumeSlider_volumeTouched") { mutableStateOf(false) }
+    val volumeDragging = remember("VolumeSlider_volumeDragging") { mutableStateOf(false) }
     val volumeInteraction = remember { MutableInteractionSource() }
     val volumePressed = volumeInteraction.collectIsPressedAsState()
     val volumeDragged = volumeInteraction.collectIsDraggedAsState()
@@ -2927,6 +2957,7 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
             Slider(
                 value = (animatedProgress.value * maxVolume),
                 onValueChange = { newValue ->
+                    if (!volumeDragging.value) return@Slider
                     sliding.value = true
                     sliderPosition.floatValue = newValue / maxVolume
                     val volume = newValue.toInt()
@@ -2941,14 +2972,29 @@ private fun VolumeSlider(context: Context, onSlider: () -> Unit) {
                 interactionSource = volumeInteraction,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 1.5.dp, end = 5.dp)
+                    .padding(start = 6.5.dp, end = 10.dp)
                     .height(ControlTouchHeight)
                     .pointerInput(Unit) {
+                        val slop = viewConfiguration.touchSlop
                         awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false)
+                            val down = awaitFirstDown(
+                                requireUnconsumed = false,
+                                pass = PointerEventPass.Initial
+                            )
                             volumeTouched.value = true
-                            waitForUpOrCancellation()
+                            volumeDragging.value = false
+                            val startX = down.position.x
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val change =
+                                    event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) break
+                                if (abs(change.position.x - startX) > slop) {
+                                    volumeDragging.value = true
+                                }
+                            }
                             volumeTouched.value = false
+                            volumeDragging.value = false
                         }
                     }
                     ,
@@ -3012,27 +3058,27 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
     val floatSpec = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 700f)
     val dpSpec = spring<Dp>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 700f)
     val thickness by animateDpAsState(
-        targetValue = if (active) 20.dp else 7.dp,
+        targetValue = if (active) 17.dp else 7.dp,
         animationSpec = dpSpec,
         label = "${label}Thickness"
     )
     val overhang by animateDpAsState(
-        targetValue = if (active) 6.dp else 0.dp,
+        targetValue = if (active) 3.dp else 0.dp,
         animationSpec = dpSpec,
         label = "${label}Overhang"
     )
     val activeAlpha by animateFloatAsState(
-        targetValue = if (active) 1f else 0.85f,
+        targetValue = if (active) 1f else 0.6f,
         animationSpec = floatSpec,
         label = "${label}ActiveAlpha"
     )
     val inactiveAlpha by animateFloatAsState(
-        targetValue = if (active) 0.35f else 0.18f,
+        targetValue = if (active) 0.28f else 0.06f,
         animationSpec = floatSpec,
         label = "${label}InactiveAlpha"
     )
     val labelOffset by animateDpAsState(
-        targetValue = if (active) 6.dp else 0.dp,
+        targetValue = if (active) 3.dp else 0.dp,
         animationSpec = dpSpec,
         label = "${label}LabelOffset"
     )
@@ -3047,7 +3093,7 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
         label = "${label}LabelScale"
     )
     val iconAlpha by animateFloatAsState(
-        targetValue = if (active) 0.85f else 0.45f,
+        targetValue = if (active) 0.85f else 0.4f,
         animationSpec = floatSpec,
         label = "${label}IconAlpha"
     )
@@ -3137,6 +3183,7 @@ private fun ScrollingSongTitle(
     fontSize: TextUnit,
     lineHeight: TextUnit,
     fontWeight: FontWeight,
+    color: Color = Color.Unspecified,
     modifier: Modifier = Modifier
 ) {
     val measurer = rememberTextMeasurer()
@@ -3160,6 +3207,7 @@ private fun ScrollingSongTitle(
             text = text,
             fontSize = fontSize,
             lineHeight = lineHeight,
+            color = color,
             maxLines = 1,
             overflow = if (scrolls) TextOverflow.Clip else TextOverflow.Ellipsis,
             fontWeight = fontWeight,
