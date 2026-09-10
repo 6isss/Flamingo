@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -50,6 +51,7 @@ fun SearchTextField(
     modifier: Modifier = Modifier,
     requestFocusSignal: Int = 0,
     onClear: (() -> Unit)? = null,
+    onFocusChanged: ((Boolean) -> Unit)? = null,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
@@ -104,6 +106,7 @@ fun SearchTextField(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .onFocusChanged { onFocusChanged?.invoke(it.isFocused) }
                         .focusRequester(focusRequester),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
                 )

@@ -8,7 +8,6 @@ import android.graphics.PorterDuff
 import android.net.Uri
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -22,10 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -39,7 +35,6 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import yos.music.player.code.utils.others.BitmapResolver
-import yos.music.player.ui.pages.NowPlayingPage
 import yos.music.player.ui.widgets.basic.YosWrapper
 
 
@@ -160,9 +155,6 @@ fun imageResolve(image: Bitmap, moreLight: Boolean = false): Bitmap {
             drawColor((0xFFFFFFFF).toInt(), PorterDuff.Mode.OVERLAY)
             drawColor((0x52FFFFFF).toInt())
             drawColor((0xBFFFFFFF).toInt(), PorterDuff.Mode.OVERLAY)
-        } else {
-            drawColor((0x33000000).toInt(), PorterDuff.Mode.OVERLAY)
-            drawColor((0x40000000).toInt())
         }
     }
     resizedBitmap = BitmapResolver.blurBitmap(resizedBitmap, 25)

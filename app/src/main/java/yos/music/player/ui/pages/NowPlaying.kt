@@ -612,10 +612,12 @@ fun NowPlaying(
                                                                         false
                                                                     )
                                                                     navController.markNextNavigationFromNowPlaying()
+                                                                    navController.toUI(UI.ArtistInfo)
                                                                     artistNavScope.launch {
+                                                                        // Keep the destination beneath the player while
+                                                                        // the same reveal blur unwinds smoothly.
                                                                         onMinimizeNowPlaying()
                                                                     }
-                                                                    navController.toUI(UI.ArtistInfo)
                                                                 }
                                                         )
                                                     }
@@ -3320,9 +3322,9 @@ private fun ScrollingSongTitle(
 
         LaunchedEffect(text, available, textWidth) {
             val distance = textWidth + gapPx
-            // Wait once so the start of the name is readable, then keep looping.
+            // Keep the leading edge readable before the first pass and between loops.
             offset.snapTo(0f)
-            delay(1500)
+            delay(2000)
             while (true) {
                 offset.animateTo(
                     targetValue = -distance,
@@ -3332,6 +3334,7 @@ private fun ScrollingSongTitle(
                     )
                 )
                 offset.snapTo(0f)
+                delay(2000)
             }
         }
 

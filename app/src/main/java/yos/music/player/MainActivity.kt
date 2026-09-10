@@ -66,6 +66,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -76,6 +77,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -111,6 +114,8 @@ import dev.chrisbanes.haze.hazeChild
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import yos.music.player.code.ListenHistoryManager
 import yos.music.player.code.ListenStatsManager
@@ -840,6 +845,24 @@ class MainActivity : BaseActivity() {
                                         val miniPlayerTrackKey =
                                             miniPlayerTrack?.mediaId ?: miniPlayerTrack?.uri?.toString()
                                             ?: ""
+                                        val miniPlayerProgress = remember {
+                                            mutableFloatStateOf(0f)
+                                        }
+                                        val miniPlayerProgressColor = MaterialTheme.colorScheme.primary
+                                        LaunchedEffect(miniPlayerTrackKey, yosBottomSheetConfig.showMenu) {
+                                            miniPlayerProgress.floatValue = 0f
+                                            while (isActive && yosBottomSheetConfig.showMenu) {
+                                                val controller = MediaController.mediaControl
+                                                val duration = controller?.duration ?: 0L
+                                                val position = controller?.currentPosition ?: 0L
+                                                miniPlayerProgress.floatValue = if (duration > 0L) {
+                                                    (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+                                                } else {
+                                                    0f
+                                                }
+                                                delay(200)
+                                            }
+                                        }
                                         val systemMediaControlResolver = remember(context) {
                                             SystemMediaControlResolver(context)
                                         }
@@ -950,6 +973,18 @@ class MainActivity : BaseActivity() {
                                                                             )
                                                                         }
                                                                     })
+                                                                .drawWithContent {
+                                                                    drawContent()
+                                                                    val barHeight = 2.dp.toPx()
+                                                                    drawRect(
+                                                                        color = miniPlayerProgressColor,
+                                                                        topLeft = Offset(0f, size.height - barHeight),
+                                                                        size = Size(
+                                                                            width = size.width * miniPlayerProgress.floatValue,
+                                                                            height = barHeight
+                                                                        )
+                                                                    )
+                                                                }
                                                         ) {
 
                                                             YosWrapper {
