@@ -37,6 +37,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -483,7 +485,35 @@ class MainActivity : BaseActivity() {
                                             composable(UI.LocalArtists) {
                                                 LocalArtists(navController)
                                             }
-                                            composable(UI.ArtistInfo) {
+                                            composable(
+                                                UI.ArtistInfo,
+                                                // The artist page rises from the bottom, matching
+                                                // the way the player expands, keeping its blur.
+                                                enterTransition = {
+                                                    fadeIn(animationSpec = fadeAnimationSpec) +
+                                                            slideInVertically(
+                                                                animationSpec = tween(
+                                                                    durationMillis = animateSpeed,
+                                                                    easing = EaseOutQuart
+                                                                )
+                                                            ) { it / 3 }
+                                                },
+                                                exitTransition = {
+                                                    fadeOut(animationSpec = fadeAnimationSpec)
+                                                },
+                                                popEnterTransition = {
+                                                    fadeIn(animationSpec = fadeAnimationSpec)
+                                                },
+                                                popExitTransition = {
+                                                    fadeOut(animationSpec = fadeAnimationSpec) +
+                                                            slideOutVertically(
+                                                                animationSpec = tween(
+                                                                    durationMillis = animateSpeed,
+                                                                    easing = EaseOutQuart
+                                                                )
+                                                            ) { it / 3 }
+                                                }
+                                            ) {
                                                 ArtistInfo(navController = navController)
                                             }
                                             composable(UI.ArtistSongs) {
@@ -849,9 +879,9 @@ class MainActivity : BaseActivity() {
                                             mutableFloatStateOf(0f)
                                         }
                                         val miniPlayerProgressColor = MaterialTheme.colorScheme.primary
-                                        LaunchedEffect(miniPlayerTrackKey, yosBottomSheetConfig.showMenu) {
+                                        LaunchedEffect(miniPlayerTrackKey) {
                                             miniPlayerProgress.floatValue = 0f
-                                            while (isActive && yosBottomSheetConfig.showMenu) {
+                                            while (isActive) {
                                                 val controller = MediaController.mediaControl
                                                 val duration = controller?.duration ?: 0L
                                                 val position = controller?.currentPosition ?: 0L
@@ -956,7 +986,7 @@ class MainActivity : BaseActivity() {
                                                                 this.alpha =
                                                                     yosBottomSheetConfig.menuAlpha
                                                             }
-                                                            .background(color)
+                                                            .background(color.copy(alpha = 0.62f))
                                                     ) {
                                                         Box(
                                                             modifier = Modifier
