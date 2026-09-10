@@ -3151,7 +3151,7 @@ private fun rememberControlSwell(active: Boolean, label: String): ControlSwell {
     val floatSpec = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 700f)
     val dpSpec = spring<Dp>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 700f)
     val thickness by animateDpAsState(
-        targetValue = if (active) 17.dp else 7.dp,
+        targetValue = if (active) 19.dp else 9.dp,
         animationSpec = dpSpec,
         label = "${label}Thickness"
     )
@@ -3324,7 +3324,7 @@ private fun ScrollingSongTitle(
             val distance = textWidth + gapPx
             // Keep the leading edge readable before the first pass and between loops.
             offset.snapTo(0f)
-            delay(2000)
+            delay(5000)
             while (true) {
                 offset.animateTo(
                     targetValue = -distance,
@@ -3334,7 +3334,7 @@ private fun ScrollingSongTitle(
                     )
                 )
                 offset.snapTo(0f)
-                delay(2000)
+                delay(5000)
             }
         }
 
@@ -3346,14 +3346,15 @@ private fun ScrollingSongTitle(
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
                     drawContent()
-                    val fade = 20.dp.toPx().coerceAtMost(size.width / 4f)
+                    val fade = 10.dp.toPx().coerceAtMost(size.width / 6f)
                     val movedAway = offset.value < -1f
+                    val edge = fade / size.width
                     drawRect(
                         brush = Brush.horizontalGradient(
-                            0f to if (movedAway) Color.Transparent else Color.Black,
-                            (fade / size.width) to Color.Black,
-                            (1f - fade / size.width) to Color.Black,
-                            1f to Color.Transparent
+                            0f to if (movedAway) Color.Black.copy(alpha = 0.25f) else Color.Black,
+                            edge to Color.Black,
+                            (1f - edge) to Color.Black,
+                            1f to Color.Black.copy(alpha = 0.25f)
                         ),
                         blendMode = BlendMode.DstIn
                     )
