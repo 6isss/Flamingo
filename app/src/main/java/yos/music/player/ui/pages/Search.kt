@@ -2,7 +2,6 @@ package yos.music.player.ui.pages
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -11,12 +10,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,34 +38,13 @@ import yos.music.player.ui.widgets.basic.Title
 
 private const val SEARCH_DEBOUNCE_MS = 150L
 private const val SEARCH_MAX_RESULTS = 100
-private const val RECENT_SEARCH_LIMIT = 5
-
-/** A recent search: the words that were typed, and the track that was opened from them. */
-data class RecentSearchEntry(val query: String, val songUri: String)
-
-/** The last five searches, kept for the lifetime of the app. */
-object RecentSearches {
-    val entries: SnapshotStateList<RecentSearchEntry> = mutableStateListOf()
-
-    fun record(query: String, song: YosMediaItem) {
-        val uri = song.uri?.toString() ?: return
-        val text = query.trim().ifBlank { song.title.orEmpty() }
-        if (text.isBlank()) return
-        entries.removeAll { it.query.equals(text, ignoreCase = true) }
-        entries.add(0, RecentSearchEntry(text, uri))
-        while (entries.size > RECENT_SEARCH_LIMIT) {
-            entries.removeAt(entries.lastIndex)
-        }
-    }
-}
 
 @Composable
 fun Search(navController: NavController) {
     val songs = runCatching { MusicLibrary.songs }.getOrDefault(emptyList())
 
     val searchText = remember { mutableStateOf("") }
-    val searchFocused = remember { mutableStateOf(false) }
-    val results = remember { mutableStateOf(songs) }
+    val results = remember { mutableStateOf(emptyList<YosMediaItem>()) }
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
 
@@ -77,7 +52,7 @@ fun Search(navController: NavController) {
     LaunchedEffect(searchText.value, songs) {
         val query = searchText.value
         if (query.isBlank()) {
-            results.value = songs
+            results.value = emptyList()
             return@LaunchedEffect
         }
         delay(SEARCH_DEBOUNCE_MS)
@@ -98,7 +73,7 @@ fun Search(navController: NavController) {
                     placeholder = stringResource(id = R.string.search_library_placeholder),
                     onValueChange = { searchText.value = it },
                     onSearch = {},
-                    onFocusChanged = { searchFocused.value = it },
+                    onFocusChanged = { },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
@@ -108,26 +83,7 @@ fun Search(navController: NavController) {
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
-            if (searchText.value.isBlank()) {
-                if (searchFocused.value && RecentSearches.entries.isNotEmpty()) {
-                    items(
-                        RecentSearches.entries.toList(),
-                        key = { entry: RecentSearchEntry -> "recent_${entry.query}" }
-                    ) { entry ->
-                        RecentSearchRow(entry.query) {
-                            keyboard?.hide()
-                            val song = songs.firstOrNull { it.uri?.toString() == entry.songUri }
-                            if (song != null) {
-                                scope.launch(Dispatchers.IO) {
-                                    MediaController.prepare(song, songs)
-                                }
-                            } else {
-                                searchText.value = entry.query
-                            }
-                        }
-                    }
-                }
-            } else {
+            if (searchText.value.isNotBlank()) {
                 if (results.value.isEmpty()) {
                     item("SearchNoResults") {
                         SearchMessage(stringResource(id = R.string.search_no_results))
@@ -145,7 +101,6 @@ fun Search(navController: NavController) {
                         artist = music.artistsName.orEmpty(),
                         onClick = {
                             keyboard?.hide()
-                            RecentSearches.record(searchText.value, music)
                             scope.launch(Dispatchers.IO) {
                                 MediaController.prepare(music, results.value)
                             }
@@ -155,25 +110,6 @@ fun Search(navController: NavController) {
             }
         }
     )
-}
-
-@Composable
-private fun RecentSearchRow(text: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 22.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = text,
-            fontSize = 16.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 2.dp)
-        )
-    }
 }
 
 @Composable
@@ -200,14 +136,10 @@ private fun SearchResultRow(title: String, artist: String, onClick: () -> Unit) 
 @Composable
 private fun SearchMessage(text: String) {
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 24.dp)
+            .padding(horizontal = 22.dp, vertical = 18.dp)
     ) {
-        Text(
-            text = text,
-            fontSize = 18.sp,
-            modifier = Modifier
-        )
+        Text(text = text, fontSize = 15.sp)
     }
 }
