@@ -110,6 +110,10 @@ fun YosFloatingLight(
                             .fillMaxSize()
                             .blur(14.dp * revealProgress(), BlurredEdgeTreatment.Unbounded)
                             .graphicsLayer {
+                                // Overscale so no softened edge of the blurred artwork
+                                // is visible: the glow runs past every screen edge.
+                                scaleX = 1.2f
+                                scaleY = 1.2f
                                 alpha = (1f - fade.value) * (0.72f + (0.28f * revealProgress()))
                             }
                     )
@@ -123,6 +127,8 @@ fun YosFloatingLight(
                             .fillMaxSize()
                             .blur(14.dp * revealProgress(), BlurredEdgeTreatment.Unbounded)
                             .graphicsLayer {
+                                scaleX = 1.2f
+                                scaleY = 1.2f
                                 this.alpha = fade.value * (0.72f + (0.28f * revealProgress()))
                             }
                     )
@@ -134,6 +140,30 @@ fun YosFloatingLight(
         // read as a vignette / edge shadow. The ambient glow now reaches the edges.
     }
 }
+
+/**
+ * Average perceived brightness of a bitmap, sampled on a coarse grid so it stays cheap.
+ */
+private fun averageLuminance(bitmap: Bitmap): Float {
+    val steps = 16
+    var total = 0f
+    var samples = 0
+    for (y in 0 until steps) {
+        for (x in 0 until steps) {
+            val px = bitmap.getPixel(
+                (bitmap.width - 1) * x / (steps - 1),
+                (bitmap.height - 1) * y / (steps - 1)
+            )
+            val r = ((px shr 16) and 0xFF) / 255f
+            val g = ((px shr 8) and 0xFF) / 255f
+            val b = (px and 0xFF) / 255f
+            total += (0.299f * r) + (0.587f * g) + (0.114f * b)
+            samples++
+        }
+    }
+    return if (samples == 0) 0f else total / samples
+}
+
 
 
 fun imageResolve(image: Bitmap, moreLight: Boolean = false): Bitmap {
@@ -158,5 +188,18 @@ fun imageResolve(image: Bitmap, moreLight: Boolean = false): Bitmap {
         }
     }
     resizedBitmap = BitmapResolver.blurBitmap(resizedBitmap, 25)
+
+    // Very bright artwork washes out the controls, so dim it in proportion to how
+    // bright it actually is. Dark artwork is left untouched.
+    if (!moreLight) {
+        val luminance = averageLuminance(resizedBitmap)
+        if (luminance > 0.55f) {
+            val dim = (((luminance - 0.55f) / 0.45f).coerceIn(0f, 1f) * 0.45f)
+            val alpha = (dim * 255f).toInt().coerceIn(0, 255)
+            resizedBitmap.applyCanvas {
+                drawColor((alpha shl 24))
+            }
+        }
+    }
     return resizedBitmap
 }
