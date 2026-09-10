@@ -103,7 +103,7 @@ fun ShadowImageWithCache(
     cornerRadius: Dp = 8.dp,
     imageQuality: ImageQuality,
     crossfade: Boolean = true,
-    crossfadeDurationMillis: Int = 100,
+    crossfadeDurationMillis: Int = 220,
     overlayContent: (@Composable BoxScope.() -> Unit)? = null
 ) = YosWrapper {
     val shape = YosRoundedCornerShape(cornerRadius)
@@ -122,7 +122,8 @@ fun ShadowImageWithCache(
     ) {
         val request = ImageRequest.Builder(LocalContext.current).data(data = url)
                 .error(R.drawable.placeholder_music_default_artwork)
-                .placeholder(R.drawable.placeholder_music_default_artwork)
+                // No placeholder frame: the cover fades in from the tile surface.
+
                 .fallback(R.drawable.placeholder_music_default_artwork)
                 .placeholderMemoryCacheKey(url.toString())
                 .memoryCacheKey(url.toString())

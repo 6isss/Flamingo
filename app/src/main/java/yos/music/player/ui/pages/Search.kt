@@ -1,32 +1,30 @@
 package yos.music.player.ui.pages
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -34,7 +32,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.random.Random
 import yos.music.player.R
 import yos.music.player.code.MediaController
 import yos.music.player.data.libraries.MusicLibrary
@@ -49,19 +46,25 @@ import yos.music.player.ui.widgets.basic.Title
 
 private const val SEARCH_DEBOUNCE_MS = 150L
 private const val SEARCH_MAX_RESULTS = 100
-private const val BROWSE_CARD_COUNT = 10
+private const val RECENT_SEARCH_LIMIT = 5
 
-private data class BrowseTile(
-    val label: String,
-    val songs: List<YosMediaItem>,
-    val color: Color,
-    val grainSeed: Int
-)
+/** A recent search: the words that were typed, and the track that was opened from them. */
+data class RecentSearchEntry(val query: String, val songUri: String)
 
-/** Increments on every visit to Search so the browse palette is re-rolled. */
-private object SearchVisitCounter {
-    private var value = 0
-    fun next(): Int = ++value
+/** The last five searches, kept for the lifetime of the app. */
+object RecentSearches {
+    val entries: SnapshotStateList<RecentSearchEntry> = mutableStateListOf()
+
+    fun record(query: String, song: YosMediaItem) {
+        val uri = song.uri?.toString() ?: return
+        val text = query.trim().ifBlank { song.title.orEmpty() }
+        if (text.isBlank()) return
+        entries.removeAll { it.query.equals(text, ignoreCase = true) }
+        entries.add(0, RecentSearchEntry(text, uri))
+        while (entries.size > RECENT_SEARCH_LIMIT) {
+            entries.removeAt(entries.lastIndex)
+        }
+    }
 }
 
 @Composable
@@ -72,11 +75,6 @@ fun Search(navController: NavController) {
     val results = remember { mutableStateOf(songs) }
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
-
-    // A fresh set of colours (and grain) every time Search is opened.
-    val visitKey = remember { mutableStateOf(SearchVisitCounter.next()) }
-    LaunchedEffect(Unit) { visitKey.value = SearchVisitCounter.next() }
-    val tiles = remember(songs, visitKey.value) { buildBrowseTiles(songs) }
 
     // Debounced fuzzy search across the whole library, ranked by relevance.
     LaunchedEffect(searchText.value, songs) {
@@ -108,36 +106,26 @@ fun Search(navController: NavController) {
                         .padding(horizontal = 20.dp),
                     onClear = { searchText.value = "" }
                 )
+                // Generous breathing room between the field and whatever follows.
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
             if (searchText.value.isBlank()) {
-                items(
-                    tiles.chunked(2),
-                    key = { row: List<BrowseTile> -> "browse_${row.first().label}" }
-                ) { row ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
-                            .padding(top = 14.dp)
-                    ) {
-                        row.forEachIndexed { index, tile ->
-                            if (index > 0) Spacer(modifier = Modifier.width(14.dp))
-                            BrowseCard(
-                                tile = tile,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                keyboard?.hide()
-                                if (tile.songs.isNotEmpty()) {
-                                    scope.launch(Dispatchers.IO) {
-                                        MediaController.prepare(tile.songs.first(), tile.songs)
-                                    }
+                if (RecentSearches.entries.isNotEmpty()) {
+                    items(
+                        RecentSearches.entries.toList(),
+                        key = { entry: RecentSearchEntry -> "recent_${entry.query}" }
+                    ) { entry ->
+                        RecentSearchRow(entry.query) {
+                            keyboard?.hide()
+                            val song = songs.firstOrNull { it.uri?.toString() == entry.songUri }
+                            if (song != null) {
+                                scope.launch(Dispatchers.IO) {
+                                    MediaController.prepare(song, songs)
                                 }
+                            } else {
+                                searchText.value = entry.query
                             }
-                        }
-                        if (row.size == 1) {
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                 }
@@ -159,6 +147,7 @@ fun Search(navController: NavController) {
                         navController = navController,
                         itemClick = {
                             keyboard?.hide()
+                            RecentSearches.record(searchText.value, music)
                             scope.launch(Dispatchers.IO) {
                                 MediaController.prepare(music, results.value)
                             }
@@ -170,73 +159,29 @@ fun Search(navController: NavController) {
     )
 }
 
-/**
- * Builds the browse grid: one card per genre found in the library, falling back
- * to albums when the files carry no genre tags. Colours are flat, saturated and
- * reshuffled on every visit.
- */
-private fun buildBrowseTiles(songs: List<YosMediaItem>): List<BrowseTile> {
-    val random = Random(System.nanoTime())
-    val hues = listOf(6f, 28f, 48f, 96f, 152f, 188f, 214f, 252f, 288f, 322f).shuffled(random)
-
-    val byGenre = songs
-        .filter { !it.genre.isNullOrBlank() }
-        .groupBy { it.genre!!.trim() }
-
-    val grouped: List<Pair<String, List<YosMediaItem>>> = if (byGenre.isNotEmpty()) {
-        byGenre.entries.sortedByDescending { it.value.size }.map { it.key to it.value }
-    } else {
-        songs
-            .filter { !it.album.isNullOrBlank() }
-            .groupBy { it.album!!.trim() }
-            .entries.sortedByDescending { it.value.size }
-            .map { it.key to it.value }
-    }
-
-    return grouped.take(BROWSE_CARD_COUNT).mapIndexed { index, (label, items) ->
-        val hue = hues[index % hues.size]
-        BrowseTile(
-            label = label,
-            songs = items,
-            color = Color.hsl(hue, 0.82f, 0.42f),
-            grainSeed = random.nextInt()
-        )
-    }
-}
-
-/**
- * Flat monochromatic card with a subtle film grain. No text: the colour is the
- * whole design, and it changes on every visit to Search.
- */
 @Composable
-private fun BrowseCard(
-    tile: BrowseTile,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(18.dp)
-    Box(
-        modifier = modifier
-            .aspectRatio(1.35f)
-            .clip(shape)
-            .background(tile.color)
+private fun RecentSearchRow(text: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
             .clickable(onClick = onClick)
+            .padding(horizontal = 22.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Canvas(modifier = Modifier.fillMaxWidth().aspectRatio(1.35f)) {
-            val random = Random(tile.grainSeed)
-            val dots = 700
-            repeat(dots) {
-                val x = random.nextFloat() * size.width
-                val y = random.nextFloat() * size.height
-                val light = random.nextBoolean()
-                drawRect(
-                    color = if (light) Color.White.copy(alpha = 0.05f)
-                    else Color.Black.copy(alpha = 0.06f),
-                    topLeft = Offset(x, y),
-                    size = Size(1.6f, 1.6f)
-                )
-            }
-        }
+        Icon(
+            painter = painterResource(id = R.drawable.ic_uitabbar_search),
+            contentDescription = null,
+            modifier = Modifier
+                .size(18.dp)
+                .alpha(0.5f)
+        )
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 14.dp)
+        )
     }
 }
 

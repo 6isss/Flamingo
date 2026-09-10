@@ -2595,6 +2595,28 @@ private fun PlayerControl(
                     }
                 }
 
+                // The one-second tick above is far too slow to catch a skip: the fill
+                // would keep gliding towards the old track's end and sweep to the right
+                // edge first. Watch the track identity closely and zero everything the
+                // moment it changes.
+                YosWrapper {
+                    LaunchedEffect(Unit) {
+                        var watchedTrackId: String? = mediaControl?.currentMediaItem?.mediaId
+                        while (true) {
+                            val trackId = mediaControl?.currentMediaItem?.mediaId
+                            if (trackId != watchedTrackId) {
+                                watchedTrackId = trackId
+                                if (!isSliding.value) {
+                                    sliderPosition.floatValue = 0f
+                                    playingPosition.longValue = 0L
+                                    playedTime.value = formatTime(0)
+                                }
+                            }
+                            delay(50)
+                        }
+                    }
+                }
+
                 // 进度条
                 YosWrapper {
                     //println("重组：控制区域内部 - 进度条")

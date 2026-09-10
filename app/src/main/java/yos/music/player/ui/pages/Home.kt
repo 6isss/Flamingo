@@ -93,6 +93,9 @@ fun Home(
             item("GenresRow") {
                 GenresRow()
             }
+            item("MostPlayedRow") {
+                MostPlayedRow()
+            }
             item("RecentlyPlayedCard") {
                 RecentlyPlayedCard()
             }

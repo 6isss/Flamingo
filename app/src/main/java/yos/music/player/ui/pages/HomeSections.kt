@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -39,14 +40,17 @@ import coil.imageLoader
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import yos.music.player.R
 import yos.music.player.code.MediaController
+import yos.music.player.data.libraries.FavPlayListLibrary
 import yos.music.player.data.libraries.MusicLibrary
 import yos.music.player.data.libraries.StatsPeriod
 import yos.music.player.data.libraries.YosMediaItem
 import yos.music.player.data.libraries.artistsName
 import yos.music.player.data.libraries.defaultArtistsName
 import yos.music.player.data.libraries.defaultTitle
+import yos.music.player.data.objects.LibraryObject
 import yos.music.player.ui.UI
 import yos.music.player.ui.theme.YosRoundedCornerShape
 import yos.music.player.ui.toUI
@@ -63,15 +67,9 @@ fun QuickTilesRow(navController: NavController) {
     val musicList = runCatching { MusicLibrary.songs }.getOrDefault(emptyList())
     if (musicList.isEmpty()) {return}
 
-    val statsSnapshot = rememberStatsSnapshot(StatsPeriod.AllTime)
-    val mostPlayed = remember(statsSnapshot) {
-        statsSnapshot.trackEntries
-            .sortedByDescending { it.listenedMs }
-            .mapNotNull { it.libraryItem }
-            .distinctBy { it.uri }
-            .take(50)
-    }
-    val mostPlayedEnabled = mostPlayed.isNotEmpty()
+    val favourites = FavPlayListLibrary.favPlayList
+    val favouritesEnabled = favourites.isNotEmpty()
+    val favouritesTitle = stringResource(id = R.string.page_library_playlists_fav_title)
 
     val scope = rememberCoroutineScope()
 
@@ -82,13 +80,18 @@ fun QuickTilesRow(navController: NavController) {
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         QuickTile(
-            title = stringResource(id = R.string.home_quick_most_played),
-            iconRes = R.drawable.ic_uitabbar_stats,
-            enabled = mostPlayedEnabled,
+            title = favouritesTitle,
+            iconRes = R.drawable.ic_action_favorited,
+            enabled = favouritesEnabled,
             modifier = Modifier.weight(1f),
             onClick = {
-                if (!mostPlayedEnabled) {return@QuickTile}
-                navController.toUI(UI.StatsTracks)
+                if (!favouritesEnabled) {return@QuickTile}
+                scope.launch(Dispatchers.IO) {
+                    LibraryObject.setTargetListWithTitle(favouritesTitle, favourites)
+                    withContext(Dispatchers.Main) {
+                        navController.toUI(UI.NormalMusic)
+                    }
+                }
             }
         )
         QuickTile(
@@ -331,6 +334,64 @@ fun GenresRow() {
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The library's most played tracks as a horizontal carousel, sitting directly
+ * above Recently Played.
+ */
+@Composable
+fun MostPlayedRow() {
+    val musicList = runCatching { MusicLibrary.songs }.getOrDefault(emptyList())
+    if (musicList.isEmpty()) {return}
+
+    val statsSnapshot = rememberStatsSnapshot(StatsPeriod.AllTime)
+    val mostPlayed = remember(statsSnapshot) {
+        statsSnapshot.trackEntries
+            .sortedByDescending { it.listenedMs }
+            .mapNotNull { it.libraryItem }
+            .distinctBy { it.uri }
+            .take(20)
+    }
+    if (mostPlayed.isEmpty()) {return}
+
+    val scope = rememberCoroutineScope()
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.home_quick_most_played),
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            lineHeight = 20.sp,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
+
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(
+                mostPlayed,
+                key = { music: YosMediaItem ->
+                    music.uri?.toString() ?: music.hashCode().toString()
+                }
+            ) { music ->
+                RecommendGridItem(
+                    music = music,
+                    modifier = Modifier.width(150.dp),
+                    onClick = {
+                        scope.launch(Dispatchers.IO) {
+                            MediaController.prepare(music, mostPlayed)
+                        }
+                    }
+                )
             }
         }
     }

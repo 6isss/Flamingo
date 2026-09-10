@@ -94,12 +94,6 @@ fun YosFloatingLight(
     }
 
     YosWrapper {
-        val lossEffect = remember("YosFloatingLight_lossEffect") {
-            derivedStateOf {
-                nowPage() != NowPlayingPage.Lyric
-            }
-        }
-
         val useBackground = remember("YosFloatingLight_useBackground") {
             derivedStateOf {
                 album() == null && currentImage.value == null
@@ -141,46 +135,8 @@ fun YosFloatingLight(
             }
         }
 
-        YosWrapper {
-            val alpha = animateFloatAsState(
-                targetValue = if (lossEffect.value) 0.618f else 0f, animationSpec = tween(
-                    durationMillis = 300,
-                    easing = FastOutSlowInEasing
-                ),
-                label = "YosFloatingLight_overlayAlpha"
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        compositingStrategy = CompositingStrategy.Offscreen
-                        this.alpha = alpha.value
-                    }
-            ) {
-                previousImage.value?.let { previous ->
-                    Image(
-                        bitmap = previous,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { this.alpha = 1f - fade.value },
-                        colorFilter = ColorFilter.tint(Color(0x33000000), BlendMode.Overlay)
-                    )
-                }
-                currentImage.value?.let { current ->
-                    Image(
-                        bitmap = current,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { this.alpha = fade.value },
-                        colorFilter = ColorFilter.tint(Color(0x33000000), BlendMode.Overlay)
-                    )
-                }
-            }
-        }
+        // The darkened overlay copy used to sit on top of the blurred artwork and
+        // read as a vignette / edge shadow. The ambient glow now reaches the edges.
     }
 }
 
