@@ -183,7 +183,7 @@ sealed class RecentlyPlayedDisplayItem
 
 fun buildRecentlyPlayedDisplayItems(
     rawHistory: List<YosMediaItem>,
-    maximumDisplayCount: Int = 10
+    maximumDisplayCount: Int = 8
 ): List<RecentlyPlayedDisplayItem>
 {
     if (rawHistory.isEmpty()) {return emptyList()}
